@@ -18,7 +18,7 @@ import re
 import sys
 from pathlib import Path
 
-from common import archive_dir, base_argparser, data_dir, load_config, maybe_skip
+from common import archive_dir, base_argparser, data_dir, load_config
 
 PREFIX_RE = re.compile(r"^\s*window\.YTD\.[\w.]+\s*=\s*", re.DOTALL)
 
@@ -53,8 +53,16 @@ def main() -> int:
     cfg = load_config(args.config)
     adir = archive_dir(cfg)
     out = data_dir(cfg) / "raw" / "tweets.json"
+    likes_out = out.parent / "likes.json"
 
-    if maybe_skip(out, args.force):
+    # Skip only when EVERY configured output already exists. If a user first ran with
+    # include_likes:false (so likes.json was never written) and later enables likes,
+    # tweets.json exists but likes.json doesn't — skipping on tweets.json alone would
+    # leave likes.json missing forever, and stage 02 would silently omit all likes.
+    expected = [out] + ([likes_out] if cfg["clean"]["include_likes"] else [])
+    if all(p.exists() for p in expected) and not args.force:
+        for p in expected:
+            print(f"[skip] {p} exists (use --force to recompute)")
         return 0
 
     tweets = parse_group(adir, r"^tweets?(-part\d+)?\.js$", "tweet", "tweets")
@@ -70,7 +78,6 @@ def main() -> int:
 
     if cfg["clean"]["include_likes"]:
         likes = parse_group(adir, r"^like(-part\d+)?\.js$", "like", "likes")
-        likes_out = out.parent / "likes.json"
         likes_out.write_text(json.dumps(likes, ensure_ascii=False), encoding="utf-8")
         print(f"[parse] wrote {len(likes)} likes -> {likes_out}")
     return 0
