@@ -55,13 +55,14 @@ themes:
     enabled: true
     reps_per_cluster: 15          # representative tweets shown to the namer per cluster
 
-  # Stage 03b: compress the fine clusters into higher-level themes. Clusters whose
-  # centroids are closer than distance_threshold (cosine) merge; the number of themes
-  # emerges from the data — no target count. Lower = more, finer themes; higher = fewer,
-  # broader. ~0.45 collapses hundreds of micro-clusters into a few dozen balanced themes.
+  # Stage 03b: consolidate the fine clusters into higher-level themes with the LLM —
+  # it proposes a taxonomy from the labels, then assigns each cluster to a theme using
+  # a few real example tweets (semantic, not embedding geometry).
   merge:
     enabled: true
-    distance_threshold: 0.45
+    distance_threshold: 0.58  # group fine clusters by label+example similarity (cosine);
+                              # lower = more, finer themes; higher = fewer, broader
+    examples_per_label: 3     # tweets per label used for grouping context + naming
 
 # --- Scoring + shortlist (step 04) ---
 score:

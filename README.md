@@ -90,9 +90,9 @@ ollama run bwen
   topics) and `umap.min_dist`.
   If `hdbscan` won't build (it's historically friction-prone on new Python / NumPy),
   set `themes.cluster.algorithm: kmeans` — it uses only scikit-learn and needs no extra wheel.
-- `themes.merge.distance_threshold` — how aggressively stage 03b compresses the fine clusters
-  into themes (cosine). Lower = more, finer themes; higher = fewer, broader. The theme count
-  emerges from the data — there's no target. Set `themes.merge.enabled: false` to skip it.
+- `themes.merge` — stage 03b consolidates the fine clusters into broad themes: it groups them
+  by label+example similarity, then the LLM names each group. Tune `distance_threshold` (lower =
+  more, finer themes; higher = fewer, broader) and `examples_per_label`. `enabled: false` to skip.
 - `filter.include_retweets` / `filter.include_likes` (+ `max_likes`) — let retweets and
   liked tweets enrich theme discovery (denser clusters, broader topic map). They're tagged
   `is_own:false` and never labeled or trained on — training stays your words only.

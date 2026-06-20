@@ -1,68 +1,81 @@
 #!/usr/bin/env python3
-"""Stage 03b — compress fine clusters into higher-level themes.
+"""Stage 03b — consolidate the fine clusters into higher-level themes.
 
-UMAP + HDBSCAN produces many fine, overlapping clusters (e.g. "ethereum scam",
-"shitcoin debate", "scam alerts"). This pass merges clusters whose centroids are
-close (agglomerative, cosine) down to a target number of themes, then LLM-names each
-merged group from its member sub-labels + representative tweets.
+Stage 03 produces hundreds of fine, overlapping labels. We group them deterministically
+and let the LLM only *name* the groups (it's reliable at naming, flaky at free-generating
+a whole taxonomy):
 
-Fast to re-run while tuning `themes.merge.target` — it reuses the embeddings and
-clusters from stage 03 and never re-embeds or re-clusters.
+  1. Represent each fine cluster by its label + a few central example tweets, and embed
+     that (label text alone is too thin — the shared 'Bitcoin' prefix collapses unrelated
+     technical topics together).
+  2. Agglomeratively group those vectors (cosine, complete linkage, a distance threshold).
+     The number of themes emerges from similarity — no target count.
+  3. LLM names each group from its member labels + example tweets.
+
+Reuses only stage 03's candidates.jsonl; re-embeds the ~N labels (cheap), never re-clusters
+the full tweet set.
 
 Output: rewrites data/candidates.jsonl with `theme` + `theme_id` (keeps the fine
-        `cluster` / `subject`), and writes data/themes.yaml (the compressed list,
-        editable for review).
+        `cluster` / `subject`), and writes data/themes.yaml (editable, for review).
 """
 from __future__ import annotations
 
 import collections
+import json
 
 import numpy as np
 import yaml
 
-from common import (base_argparser, data_dir, load_config, ollama_generate,
-                    ollama_preflight, read_jsonl, require_file, write_jsonl)
+from common import (base_argparser, data_dir, load_config, ollama_embed,
+                    ollama_generate, ollama_preflight, read_jsonl, require_file, write_jsonl)
 
 
-def normalize(x: np.ndarray) -> np.ndarray:
-    n = np.linalg.norm(x, axis=1, keepdims=True)
-    n[n == 0] = 1.0
-    return x / n
+def gather_clusters(rows: list[dict], examples_per_label: int) -> dict[int, dict]:
+    """For each fine cluster (excluding noise): its label, size, and N central tweets."""
+    by_cluster: dict[int, list[dict]] = collections.defaultdict(list)
+    for r in rows:
+        if r["cluster"] != -1:
+            by_cluster[r["cluster"]].append(r)
+    clusters = {}
+    for cid, members in by_cluster.items():
+        members.sort(key=lambda r: r.get("centroid_dist", 0.0))  # most central first
+        clusters[cid] = {
+            "label": members[0].get("subject", f"cluster_{cid}"),
+            "count": len(members),
+            "examples": [m["text"] for m in members[:examples_per_label]],
+        }
+    return clusters
 
 
-def cluster_centroids(emb: np.ndarray, labels: np.ndarray) -> tuple[list[int], np.ndarray]:
-    """Return (ordered cluster ids excluding noise, matrix of their unit centroids)."""
-    ids = sorted({int(l) for l in labels if l != -1})
-    cents = np.vstack([emb[labels == c].mean(axis=0) for c in ids])
-    return ids, normalize(cents)
+def _normalize(x: np.ndarray) -> np.ndarray:
+    return x / np.clip(np.linalg.norm(x, axis=1, keepdims=True), 1e-9, None)
 
 
-def merge_clusters(cents: np.ndarray, mcfg: dict) -> np.ndarray:
-    """Agglomerative merge of cluster centroids -> a merged-group id per cluster.
-
-    No target count: clusters closer than `distance_threshold` (cosine) collapse
-    together, so the number of themes emerges naturally from how similar they are.
-    """
-    if len(cents) < 2:
-        return np.zeros(len(cents), dtype=int)
+def group_clusters(clusters: dict[int, dict], embed_model: str, threshold: float) -> dict[int, int]:
+    """Embed each cluster's label+examples, agglomeratively group -> {cluster_id: group_id}."""
+    cids = list(clusters)
+    reprs = [f"{clusters[c]['label']}: " + " | ".join(clusters[c]["examples"]) for c in cids]
+    vecs: list[list[float]] = []
+    for i in range(0, len(reprs), 128):
+        vecs.extend(ollama_embed(embed_model, reprs[i:i + 128]))
+    emb = _normalize(np.asarray(vecs, dtype=np.float32))
+    if len(cids) < 2:
+        return {c: 0 for c in cids}
     from sklearn.cluster import AgglomerativeClustering
-    # complete linkage: a group forms only when ALL its clusters are within threshold,
-    # so it resists chaining (average linkage collapses into one mega-theme on dense data).
-    model = AgglomerativeClustering(n_clusters=None, metric="cosine", linkage="complete",
-                                    distance_threshold=mcfg["distance_threshold"])
-    return model.fit_predict(cents)
+    labels = AgglomerativeClustering(n_clusters=None, metric="cosine", linkage="complete",
+                                     distance_threshold=threshold).fit_predict(emb)
+    return {c: int(g) for c, g in zip(cids, labels)}
 
 
-def name_theme(member_subjects, example_texts, model) -> str:
-    subjects = ", ".join(dict.fromkeys(member_subjects))  # dedup, keep order
+def name_group(member_labels: list[str], example_texts: list[str], model: str) -> str:
+    subjects = ", ".join(dict.fromkeys(member_labels))
     examples = "\n".join(f"- {t[:160]}" for t in example_texts)
     prompt = (
-        "These sub-topics and example tweets all belong to one broader theme:\n"
+        "These sub-topics and example tweets all belong to one theme:\n"
         f"sub-topics: {subjects}\n\nexamples:\n{examples}\n\n"
-        "Reply with a single short higher-level theme label of 2-4 words "
-        "(no punctuation, no quotes)."
+        "Reply with a single short theme label of 2-4 words (no punctuation, no quotes)."
     )
-    label = ollama_generate(model, prompt, options={"temperature": 0}).strip()
+    label = ollama_generate(model, prompt, options={"temperature": 0, "num_predict": 32}).strip()
     return label.splitlines()[0].strip().strip('"').strip()[:40]
 
 
@@ -75,78 +88,73 @@ def main() -> int:
         print("[merge] themes.merge.enabled is false — nothing to do.")
         return 0
 
-    # Match stage 03's limit-aware cache name so a --limit dry-run lines up.
-    cache = ddir / (f"embeddings.limit{args.limit}.npy" if args.limit else "embeddings.npy")
     require_file(ddir / "candidates.jsonl", "stage 03 (just themes)")
-    require_file(cache, "stage 03 (just themes)")
     rows = read_jsonl(ddir / "candidates.jsonl")
-    emb = normalize(np.load(cache))
-    if emb.shape[0] != len(rows):
-        print(f"[merge] embeddings ({emb.shape[0]}) and candidates ({len(rows)}) are out of "
-              f"sync — rerun `just themes --force` first.")
+    clusters = gather_clusters(rows, mcfg["examples_per_label"])
+    if not clusters:
+        print("[merge] no clusters to consolidate (all noise).")
         return 1
-
-    labels = np.array([r["cluster"] for r in rows])
-    ids, cents = cluster_centroids(emb, labels)
-    if not ids:
-        print("[merge] no clusters to merge (all noise).")
-        return 1
-
-    groups = merge_clusters(cents, mcfg)
-    cluster_to_group = {c: int(g) for c, g in zip(ids, groups)}
-    n_groups = len(set(groups))
-    print(f"[merge] {len(ids)} clusters -> {n_groups} themes")
 
     ollama_preflight()
     model = cfg["score"]["llm_model"]
-    reps = cfg["themes"]["naming"]["reps_per_cluster"]
 
-    # Build per-group members and name each from its sub-labels + central tweets.
-    group_members = collections.defaultdict(list)  # group_id -> [cluster_id]
-    for c, g in cluster_to_group.items():
-        group_members[g].append(c)
+    print(f"[merge] grouping {len(clusters)} clusters by label+example similarity...")
+    cluster_to_group = group_clusters(clusters, cfg["themes"]["embed_model"],
+                                      mcfg["distance_threshold"])
+    members: dict[int, list[int]] = collections.defaultdict(list)
+    for cid, g in cluster_to_group.items():
+        members[g].append(cid)
+    print(f"[merge] {len(clusters)} clusters -> {len(members)} groups; naming...")
 
     group_name: dict[int, str] = {}
-    group_size: dict[int, int] = {}
-    group_subjects: dict[int, list[str]] = {}
-    subj_by_cluster = {r["cluster"]: r.get("subject", "") for r in rows}
-
-    for g, member_clusters in sorted(group_members.items()):
-        mask = np.isin(labels, member_clusters)
-        idx = np.where(mask)[0]
-        group_size[g] = len(idx)
-        center = normalize(emb[idx].mean(axis=0)[None, :])[0]
-        nearest = idx[np.argsort(-(emb[idx] @ center))][:reps]
-        member_subjects = sorted({subj_by_cluster[c] for c in member_clusters})
-        group_subjects[g] = member_subjects
+    for g, member_clusters in sorted(members.items()):
+        member_clusters.sort(key=lambda c: -clusters[c]["count"])
+        labels = [clusters[c]["label"] for c in member_clusters]
+        examples = [t for c in member_clusters[:5] for t in clusters[c]["examples"][:2]]
         try:
-            group_name[g] = name_theme(member_subjects,
-                                       [rows[i]["text"] for i in nearest], model) or f"theme_{g}"
+            group_name[g] = name_group(labels, examples[:8], model) or labels[0]
         except Exception as e:  # noqa: BLE001
-            group_name[g] = member_subjects[0] if member_subjects else f"theme_{g}"
-            print(f"[merge] naming failed for theme {g}: {e}")
-        print(f"[merge]   theme {g} ({group_size[g]} tweets, {len(member_clusters)} clusters): {group_name[g]}")
+            group_name[g] = labels[0]
+            print(f"[merge] naming failed for group {g}: {e}")
+        size = sum(clusters[c]["count"] for c in member_clusters)
+        print(f"[merge]   {size:5d} tweets, {len(member_clusters):2d} clusters: {group_name[g]}")
+
+    # Resolve duplicate names (independent naming can collide) by appending the group id.
+    counts = collections.Counter(group_name.values())
+    for g, name in group_name.items():
+        if counts[name] > 1:
+            group_name[g] = f"{name} ({g})"
+
+    # Tally size + member sub-labels per theme, then id themes largest-first.
+    size_by_name: collections.Counter = collections.Counter()
+    subs: dict[str, set] = collections.defaultdict(set)
+    for g, member_clusters in members.items():
+        for c in member_clusters:
+            size_by_name[group_name[g]] += clusters[c]["count"]
+            subs[group_name[g]].add(clusters[c]["label"])
+    name_to_id = {name: i for i, name in
+                  enumerate(sorted(size_by_name, key=lambda n: -size_by_name[n]))}
 
     for r in rows:
-        g = cluster_to_group.get(r["cluster"])
-        r["theme_id"] = g if g is not None else -1
-        r["theme"] = group_name.get(g, "misc/noise") if g is not None else "misc/noise"
-
+        g = cluster_to_group.get(r["cluster"]) if r["cluster"] != -1 else None
+        name = group_name.get(g) if g is not None else None
+        r["theme"] = name or "misc/noise"
+        r["theme_id"] = name_to_id[name] if name else -1
     write_jsonl(ddir / "candidates.jsonl", rows)
 
-    themes_path = ddir / "themes.yaml"
     themes = [{
-        "name": group_name[g],
-        "theme_id": g,
-        "tweets": group_size[g],
-        "clusters": len(group_members[g]),
-        "subtopics": [s for s in group_subjects[g] if s],
-    } for g in sorted(group_name, key=lambda x: -group_size[x])]
+        "name": name,
+        "theme_id": tid,
+        "tweets": size_by_name[name],
+        "subtopics": sorted(s for s in subs[name] if s),
+    } for name, tid in sorted(name_to_id.items(), key=lambda kv: -size_by_name[kv[0]])]
+
+    themes_path = ddir / "themes.yaml"
     with open(themes_path, "w") as f:
-        f.write(f"# {n_groups} themes from {len(ids)} fine clusters. Edit freely — rename,\n"
-                f"# delete, or move subtopics between themes; this file is for your review.\n")
+        f.write(f"# {len(themes)} themes consolidated from {len(clusters)} fine clusters.\n"
+                f"# Edit freely — rename, delete, or move subtopics; this is for review.\n")
         yaml.safe_dump(themes, f, sort_keys=False, allow_unicode=True, width=100)
-    print(f"[merge] wrote {n_groups} themes -> {themes_path} (review/merge it)")
+    print(f"[merge] {len(clusters)} clusters -> {len(themes)} themes -> {themes_path}")
     return 0
 
 
