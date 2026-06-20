@@ -18,7 +18,8 @@ import json
 import random
 import re
 
-from common import base_argparser, data_dir, load_config, maybe_skip, read_jsonl, write_jsonl
+from common import (base_argparser, data_dir, load_config, maybe_skip, read_jsonl,
+                    require_file, write_jsonl)
 
 URL_RE = re.compile(r"https?://t\.co/\w+")
 ANY_URL_RE = re.compile(r"https?://\S+")
@@ -74,6 +75,7 @@ def main() -> int:
     if maybe_skip(out, args.force):
         return 0
 
+    require_file(src, "stage 01 (just parse)")
     raw = json.loads(src.read_text(encoding="utf-8"))
     if args.limit:
         raw = raw[: args.limit]

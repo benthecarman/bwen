@@ -17,8 +17,8 @@ from collections import defaultdict
 
 from tqdm import tqdm
 
-from common import (apply_subject_edits, base_argparser, data_dir, load_config,
-                    maybe_skip, ollama_generate, read_jsonl, write_jsonl)
+from common import (apply_subject_edits, base_argparser, data_dir, load_config, maybe_skip,
+                    ollama_generate, ollama_preflight, read_jsonl, require_file, write_jsonl)
 
 SCORE_SCHEMA = {
     "type": "object",
@@ -64,6 +64,7 @@ def main() -> int:
     args = p.parse_args()
     cfg = load_config(args.config)
     ddir = data_dir(cfg)
+    require_file(ddir / "candidates.jsonl", "stage 03 (just themes)")
     rows = read_jsonl(ddir / "candidates.jsonl")
     if args.limit:
         rows = rows[: args.limit]
@@ -90,6 +91,7 @@ def main() -> int:
 
     scfg = cfg["score"]
     if scfg["use_llm"]:
+        ollama_preflight()
         pool_n = scfg["llm_score_pool"]
         pool = sorted(own, key=lambda r: r["heuristic"], reverse=True)[:pool_n]
         print(f"[score] LLM-scoring top {len(pool)} by heuristic with {scfg['llm_model']}...")

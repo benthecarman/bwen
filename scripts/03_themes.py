@@ -19,8 +19,8 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 
-from common import (base_argparser, data_dir, load_config, maybe_skip,
-                    ollama_embed, ollama_generate, read_jsonl, write_jsonl)
+from common import (base_argparser, data_dir, load_config, maybe_skip, ollama_embed,
+                    ollama_generate, ollama_preflight, read_jsonl, require_file, write_jsonl)
 
 
 def get_embeddings(texts: list[str], model: str, cache: Path, force: bool) -> np.ndarray:
@@ -114,12 +114,14 @@ def main() -> int:
     args = base_argparser(__doc__).parse_args()
     cfg = load_config(args.config)
     ddir = data_dir(cfg)
+    require_file(ddir / "clean" / "tweets.jsonl", "stage 02 (just clean)")
     rows = read_jsonl(ddir / "clean" / "tweets.jsonl")
     if args.limit:
         rows = rows[: args.limit]
     out = ddir / "candidates.jsonl"
     if maybe_skip(out, args.force):
         return 0
+    ollama_preflight()
 
     texts = [r["text"] for r in rows]
     emb = get_embeddings(texts, cfg["themes"]["embed_model"], ddir / "embeddings.npy", args.force)

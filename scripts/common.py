@@ -65,6 +65,27 @@ def archive_dir(cfg: dict) -> Path:
     return REPO_ROOT / cfg["paths"]["archive_dir"]
 
 
+def require_file(path: Path, prev_stage: str) -> Path:
+    """Exit with a 'run <stage> first' hint instead of a raw FileNotFoundError."""
+    if not path.exists():
+        raise SystemExit(f"[error] {path} not found — run {prev_stage} first.")
+    return path
+
+
+def ollama_preflight() -> None:
+    """Fail fast with a friendly message if the Ollama server isn't reachable.
+
+    Otherwise the first embed/generate call dies deep in a stage with a raw
+    ConnectionError, which doesn't hint that the fix is to start `ollama serve`.
+    """
+    try:
+        requests.get(OLLAMA_HOST, timeout=5)
+    except requests.RequestException:
+        raise SystemExit(
+            f"[error] can't reach Ollama at {OLLAMA_HOST}. Is it running? "
+            f"Start it with `ollama serve` (or set OLLAMA_HOST).")
+
+
 # ---- JSONL helpers ----
 
 def write_jsonl(path: Path, rows: Iterable[dict]) -> int:

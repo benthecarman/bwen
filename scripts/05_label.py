@@ -18,13 +18,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from common import apply_subject_edits, base_argparser, data_dir, load_config, read_jsonl
+from common import (apply_subject_edits, base_argparser, data_dir, load_config,
+                    read_jsonl, require_file)
 
 
 def main() -> int:
     args = base_argparser(__doc__).parse_args()
     cfg = load_config(args.config)
     ddir = data_dir(cfg)
+    require_file(ddir / "shortlist.jsonl", "stage 04 (just score)")
     shortlist = read_jsonl(ddir / "shortlist.jsonl")
     if args.limit:
         shortlist = shortlist[: args.limit]
