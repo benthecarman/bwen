@@ -6,7 +6,7 @@ readme = "README.md"
 # Pinned to 3.12: torch / unsloth do not ship wheels for 3.14 yet.
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    # Lightweight data-pipeline deps (steps 01-06). No GPU needed.
+    # Data-pipeline deps (steps 01-06). No GPU needed.
     "pyyaml>=6.0",
     "numpy>=1.26",
     "requests>=2.31",       # talk to the local Ollama HTTP API
@@ -15,23 +15,14 @@ dependencies = [
                             # kmeans in config.yaml to avoid it if the wheel won't build)
     "umap-learn>=0.5",      # nonlinear dim reduction for theme discovery (themes.reduce: umap)
     "tqdm>=4.66",
-]
-
-[project.optional-dependencies]
-# Heavy training stack (steps 07-08). Install separately once the data is ready:
-#   uv sync --extra train
-# On the RTX 5060 Ti (Blackwell / sm_120) torch must be a cu128 build — see README.
-train = [
+    # Training stack (steps 07-08). On the RTX 5060 Ti (Blackwell / sm_120)
+    # torch must be a cu128 build — see README.
     "torch",
     "unsloth",
     "transformers>=4.44",
     "datasets>=2.20",
     "accelerate>=0.33",
 ]
-
-[tool.uv]
-# Don't try to build the heavy extras unless explicitly requested.
-default-groups = []
 
 [build-system]
 requires = ["hatchling"]

@@ -8,7 +8,7 @@ Chat rows are masked so the loss is computed only on the assistant turn (your re
 tweet) — not the persona or the hand-written prompt, which aren't your voice. Raw
 voice tweets carry no prompt and are trained in full.
 
-Requires the heavy extras:  uv sync --extra train
+Needs the training stack (torch, unsloth, ...), installed by `just setup`.
 On the RTX 5060 Ti (Blackwell / sm_120) torch must be a cu128 build — see README.
 """
 from __future__ import annotations

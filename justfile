@@ -6,7 +6,7 @@ s  := "scripts"
 default:
     @just --list
 
-# Create venv + install light deps.
+# Create venv + install all deps (data pipeline + training stack).
 setup:
     uv venv --python 3.12
     uv pip install -e .
@@ -35,7 +35,7 @@ label *args:
 data *args:
     {{py}} {{s}}/06_build_dataset.py {{args}}
 
-# 07 — LoRA finetune (needs `uv sync --extra train`).
+# 07 — LoRA finetune.
 train *args:
     {{py}} {{s}}/07_train.py {{args}}
 
@@ -54,7 +54,7 @@ discover: parse filter themes
 
 # Data pipeline up to the shortlist (then hand-label, then build + train).
 all: parse filter themes score
-    @echo "Next: just label  ->  just data  ->  just train (uv sync --extra train first)  ->  just export  ->  just eval"
+    @echo "Next: just label  ->  just data  ->  just train  ->  just export  ->  just eval"
 
 # Fast smoke test of the data stages on a small sample. Writes to a throwaway dir
 # (BWEN_DATA_DIR) so it never poisons the real data/ artifacts that later stages reuse.

@@ -19,7 +19,7 @@ Finetune a small model to write in **your voice** and hold **your opinions**, tr
 
 ```bash
 uv venv --python 3.12          # torch/unsloth don't ship 3.14 wheels
-uv pip install -e .            # light data-pipeline deps
+uv pip install -e .            # data-pipeline + training stack (torch cu128, unsloth, ...)
 cp config.example.yaml config.yaml             # then edit: handle, account_id, models
 cp eval_prompts.example.txt eval_prompts.txt   # then edit with prompts from your domain
 cp Modelfile.example Modelfile                 # then edit with your handle
@@ -54,7 +54,6 @@ embeddings are cached). Every stage takes `--limit N` for fast iteration.
 ## Train, export, evaluate
 
 ```bash
-uv sync --extra train      # heavy stack: torch (cu128), unsloth, trl, transformers
 just train                 # LoRA finetune on the RTX 5060 Ti
 just export                # merge → GGUF → `ollama create`
 just eval                  # base vs. tuned scorecard -> runs/<timestamp>.md
