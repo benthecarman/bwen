@@ -87,6 +87,20 @@ def read_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+# ---- Persona / Qwen3 thinking ----
+
+NO_THINK = "/no_think"  # Qwen3 directive: answer directly instead of emitting <think> blocks
+
+
+def think_off(persona: str) -> str:
+    """Persona system string with Qwen3 thinking disabled.
+
+    Defined once so the `/no_think` suffix has a single source of truth across stages
+    (the export Modelfile and the eval requests) and can't accidentally double up.
+    """
+    return persona if persona.rstrip().endswith(NO_THINK) else f"{persona} {NO_THINK}"
+
+
 # ---- Subjects (hand-editable theme labels) ----
 
 def load_subject_edits(ddir: Path) -> dict[int, str]:

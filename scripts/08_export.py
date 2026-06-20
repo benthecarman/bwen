@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import subprocess
 
-from common import REPO_ROOT, base_argparser, load_config
+from common import REPO_ROOT, base_argparser, load_config, think_off
 
 
 def main() -> int:
@@ -45,7 +45,7 @@ def main() -> int:
     modelfile = out_dir / "Modelfile"
     modelfile.write_text(
         f"FROM {gguf_path}\n"
-        f'SYSTEM """{persona} /no_think"""\n'
+        f'SYSTEM """{think_off(persona)}"""\n'
         "PARAMETER temperature 0.8\n"
         "PARAMETER top_p 0.9\n"
     )

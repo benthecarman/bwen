@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from common import REPO_ROOT, base_argparser, data_dir, load_config, ollama_generate, read_jsonl
+from common import (REPO_ROOT, base_argparser, data_dir, load_config, ollama_generate,
+                    read_jsonl, think_off)
 
 
 def gen(model: str, prompt: str, system: str) -> str:
@@ -19,7 +20,9 @@ def gen(model: str, prompt: str, system: str) -> str:
         # Greedy decoding: the scorecard's job is a consistent signal across data/epoch/
         # LoRA tweaks, so it must be deterministic — sampling would conflate noise with
         # real changes. (Day-to-day "what does it sound like" sampling lives in `ollama run`.)
-        return ollama_generate(model, prompt, system=system + " /no_think",
+        # think_off disables Qwen3 reasoning for the base model too (its Modelfile has no
+        # baked SYSTEM); it's idempotent, so the tuned model never gets a doubled /no_think.
+        return ollama_generate(model, prompt, system=think_off(system),
                                options={"temperature": 0}).strip()
     except Exception as e:  # noqa: BLE001
         return f"[error: {e}]"
