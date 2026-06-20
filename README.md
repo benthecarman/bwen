@@ -94,7 +94,7 @@ ollama run bwen
   by label+example similarity, then the LLM names each group. Tune `distance_threshold` (lower =
   more, finer themes; higher = fewer, broader) and `examples_per_label`. `max_theme_share`
   recursively re-splits any theme bigger than that fraction of all tweets (so a dominant topic
-  like Bitcoin dev doesn't stay one blob; `0` disables splitting). `enabled: false` to skip.
+  doesn't stay one giant blob; `0` disables splitting). `enabled: false` to skip.
 - `filter.include_retweets` / `filter.include_likes` (+ `max_likes`) — let retweets and
   liked tweets enrich theme discovery (denser clusters, broader topic map). They're tagged
   `is_own:false` and never labeled or trained on — training stays your words only.

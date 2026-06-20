@@ -6,8 +6,8 @@ and let the LLM only *name* the groups (it's reliable at naming, flaky at free-g
 a whole taxonomy):
 
   1. Represent each fine cluster by its label + a few central example tweets, and embed
-     that (label text alone is too thin — the shared 'Bitcoin' prefix collapses unrelated
-     technical topics together).
+     that (label text alone is too thin — when most labels share a dominant-subject prefix
+     it collapses otherwise-unrelated topics together).
   2. Agglomeratively group those vectors (cosine, complete linkage, a distance threshold).
      The number of themes emerges from similarity — no target count.
   3. LLM names each group from its member labels + example tweets.
@@ -99,13 +99,22 @@ def group_clusters(clusters: dict[int, dict], embed_model: str, threshold: float
     return {cids[i]: gid for gid, grp in enumerate(groups) for i in grp}
 
 
-def name_group(member_labels: list[str], example_texts: list[str], model: str) -> str:
+def name_group(member_labels: list[str], example_texts: list[str], model: str,
+               taken: list[str]) -> str:
     subjects = ", ".join(dict.fromkeys(member_labels))
     examples = "\n".join(f"- {t[:160]}" for t in example_texts)
+    distinct = ""
+    if taken:
+        distinct = ("\n\nAlready-used names (yours must be different from every one):\n"
+                    + ", ".join(taken))
     prompt = (
         "These sub-topics and example tweets all belong to one theme:\n"
-        f"sub-topics: {subjects}\n\nexamples:\n{examples}\n\n"
-        "Reply with a single short theme label of 2-4 words (no punctuation, no quotes)."
+        f"sub-topics: {subjects}\n\nexamples:\n{examples}{distinct}\n\n"
+        "Reply with a single short theme label of 2-4 words. Name the SPECIFIC sub-topic "
+        "that sets this group apart, drawn from its sub-topics above. Avoid broad umbrella "
+        "terms that would fit many different groups, and don't use a vague or abstract word "
+        "just to differ. It must differ from every already-used name. "
+        "No punctuation, no quotes."
     )
     label = ollama_generate(model, prompt, options={"temperature": 0, "num_predict": 32}).strip()
     return label.splitlines()[0].strip().strip('"').strip()[:40]
@@ -138,21 +147,26 @@ def main() -> int:
         members[g].append(cid)
     print(f"[merge] {len(clusters)} clusters -> {len(members)} groups; naming...")
 
+    # Name largest theme first, passing the names already taken so each new name is
+    # distinct — the dominant theme gets the clean name, overlapping siblings differentiate.
+    group_size = {g: sum(clusters[c]["count"] for c in mc) for g, mc in members.items()}
     group_name: dict[int, str] = {}
-    for g, member_clusters in sorted(members.items()):
-        member_clusters.sort(key=lambda c: -clusters[c]["count"])
+    taken: list[str] = []
+    for g in sorted(members, key=lambda g: -group_size[g]):
+        member_clusters = sorted(members[g], key=lambda c: -clusters[c]["count"])
         labels = [clusters[c]["label"] for c in member_clusters]
         examples = [t for c in member_clusters[:5] for t in clusters[c]["examples"][:2]]
         try:
-            group_name[g] = name_group(labels, examples[:8], model) or labels[0]
+            name = name_group(labels, examples[:8], model, taken) or labels[0]
         except Exception as e:  # noqa: BLE001
-            group_name[g] = labels[0]
+            name = labels[0]
             print(f"[merge] naming failed for group {g}: {e}")
-        size = sum(clusters[c]["count"] for c in member_clusters)
-        print(f"[merge]   {size:5d} tweets, {len(member_clusters):2d} clusters: {group_name[g]}")
+        group_name[g] = name
+        taken.append(name)
+        print(f"[merge]   {group_size[g]:5d} tweets, {len(member_clusters):2d} clusters: {name}")
 
     # Resolve duplicate names (independent naming can collide) by appending the group id.
-    # Case-insensitive so "Bitcoin Technology" and "Bitcoin technology" don't both stand.
+    # Case-insensitive so two names differing only in case don't both stand.
     counts = collections.Counter(n.lower() for n in group_name.values())
     for g, name in group_name.items():
         if counts[name.lower()] > 1:
