@@ -14,8 +14,8 @@ paths:
   data_dir: data                      # all generated artifacts go here (gitignored)
   runs_dir: runs                      # eval scorecards
 
-# --- Cleaning / filtering (step 02) ---
-clean:
+# --- Filtering / cleaning (step 02) ---
+filter:
   languages: [en]            # keep only these langs; [] = keep all
   include_retweets: false    # true = keep RTs (tagged is_own:false) to enrich theme
                              # discovery ONLY; they're never labeled or trained on

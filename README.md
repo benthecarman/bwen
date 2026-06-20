@@ -41,7 +41,8 @@ Get your archive: X → Settings → *Download an archive of your data*. Unzip s
 
 ```bash
 just dry-run        # smoke-test the data stages (01-04, 06) on a 200-tweet sample first
-just all            # 01 parse → 02 clean → 03 themes → 04 score  (full)
+just discover       # 01 parse → 02 filter → 03 themes  (stop to review subjects)
+just all            # 01 parse → 02 filter → 03 themes → 04 score  (full)
 $EDITOR data/subjects.txt   # review/merge the auto-discovered themes
 just label          # hand-write prompts for the shortlist (resumable)
 just data           # build train.jsonl (chat pairs + voice layer) + eval.jsonl
@@ -69,7 +70,7 @@ ollama run bwen
 | Stage | Script | Output |
 |---|---|---|
 | 01 parse | `scripts/01_parse.py` | `data/raw/tweets.json` |
-| 02 clean | `scripts/02_filter_clean.py` | `data/clean/tweets.jsonl` |
+| 02 filter | `scripts/02_filter_clean.py` | `data/filtered/tweets.jsonl` |
 | 03 themes | `scripts/03_themes.py` | `data/candidates.jsonl`, `data/subjects.txt`, `data/embeddings.npy` |
 | 04 score | `scripts/04_score.py` | `data/candidates_scored.jsonl`, `data/shortlist.jsonl` |
 | 05 label | `scripts/05_label.py` | `data/labeled.jsonl` |
@@ -86,7 +87,7 @@ ollama run bwen
 - `themes.algorithm` / `hdbscan_min_cluster_size` / `kmeans_k` — cluster granularity.
   If `hdbscan` won't build (it's historically friction-prone on new Python / NumPy),
   set `themes.algorithm: kmeans` — it uses only scikit-learn and needs no extra wheel.
-- `clean.include_retweets` / `clean.include_likes` (+ `max_likes`) — let retweets and
+- `filter.include_retweets` / `filter.include_likes` (+ `max_likes`) — let retweets and
   liked tweets enrich theme discovery (denser clusters, broader topic map). They're tagged
   `is_own:false` and never labeled or trained on — training stays your words only.
 - `train.base_model` — swap to an ~8B model to scale up; everything else is unchanged.

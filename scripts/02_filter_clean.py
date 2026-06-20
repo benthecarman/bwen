@@ -2,7 +2,7 @@
 """Stage 02 — filter and clean tweets into a tidy JSONL.
 
 - Drops non-target languages and tweets that are only a URL/mention.
-- Retweets: dropped by default; with clean.include_retweets they are kept tagged
+- Retweets: dropped by default; with filter.include_retweets they are kept tagged
   `is_own: false` so they enrich theme discovery (stage 03) ONLY — stages 04 and 06
   filter to is_own=true, so a retweet is never labeled or trained on (it's not your words).
 - Expands t.co links to their real URLs (or strips trailing media links).
@@ -10,7 +10,7 @@
   instead of dropping them, so a recurring catchphrase can be emphasized downstream.
 - Keeps a small, useful set of fields.
 
-Output: data/clean/tweets.jsonl
+Output: data/filtered/tweets.jsonl
 """
 from __future__ import annotations
 
@@ -58,23 +58,23 @@ def build_url_map(tweet: dict) -> dict[str, str | None]:
 
 def clean_text(tweet: dict, cfg: dict) -> str:
     text = RT_PREFIX_RE.sub("", tweet.get("full_text", ""))  # drop "RT @user:" if present
-    if cfg["clean"]["expand_urls"]:
+    if cfg["filter"]["expand_urls"]:
         url_map = build_url_map(tweet)
 
         def repl(match: re.Match) -> str:
             url = match.group(0)
             if url in url_map:
                 expanded = url_map[url]
-                return "" if expanded is None and cfg["clean"]["strip_trailing_media_url"] else (expanded or url)
+                return "" if expanded is None and cfg["filter"]["strip_trailing_media_url"] else (expanded or url)
             return url
 
         text = URL_RE.sub(repl, text)
-    if cfg["clean"]["strip_urls"]:
+    if cfg["filter"]["strip_urls"]:
         # A generated URL is always a hallucination; drop them all for a voice model.
         text = ANY_URL_RE.sub("", text)
     text = html.unescape(text)
     text = WS_RE.sub(" ", text).strip()
-    if cfg["clean"]["strip_leading_mentions"]:
+    if cfg["filter"]["strip_leading_mentions"]:
         text = LEADING_MENTIONS_RE.sub("", text).strip()
     return text
 
@@ -84,7 +84,7 @@ def main() -> int:
     cfg = load_config(args.config)
     ddir = data_dir(cfg)
     src = ddir / "raw" / "tweets.json"
-    out = ddir / "clean" / "tweets.jsonl"
+    out = ddir / "filtered" / "tweets.jsonl"
 
     if maybe_skip(out, args.force):
         return 0
@@ -94,10 +94,10 @@ def main() -> int:
     if args.limit:
         raw = raw[: args.limit]
 
-    langs = set(cfg["clean"]["languages"] or [])
-    include_rts = cfg["clean"]["include_retweets"]
-    min_chars = cfg["clean"]["min_chars"]
-    drop_replies_others = cfg["clean"]["drop_replies_to_others"]
+    langs = set(cfg["filter"]["languages"] or [])
+    include_rts = cfg["filter"]["include_retweets"]
+    min_chars = cfg["filter"]["min_chars"]
+    drop_replies_others = cfg["filter"]["drop_replies_to_others"]
     acct_id = str(cfg["account_id"])
 
     kept: list[dict] = []
@@ -154,15 +154,15 @@ def main() -> int:
     # Fold in liked tweets (context-only) for theme discovery. Capped so a large likes
     # set doesn't swamp your own tweets; never labeled or trained on (is_own=false).
     n_like = 0
-    if cfg["clean"]["include_likes"]:
+    if cfg["filter"]["include_likes"]:
         likes_path = ddir / "raw" / "likes.json"
         if not likes_path.exists():
-            print("[clean] include_likes set but data/raw/likes.json missing — run stage 01 first")
+            print("[filter] include_likes set but data/raw/likes.json missing — run stage 01 first")
         else:
             likes_raw = json.loads(likes_path.read_text(encoding="utf-8"))
-            cap = cfg["clean"]["max_likes"]  # 0 = no cap (use all likes)
+            cap = cfg["filter"]["max_likes"]  # 0 = no cap (use all likes)
             if not cap and not args.limit:
-                print(f"[clean] WARNING: max_likes:0 (uncapped) — folding in all "
+                print(f"[filter] WARNING: max_likes:0 (uncapped) — folding in all "
                       f"{len(likes_raw)} likes. A large likes set swamps your own tweets "
                       f"in theme discovery and makes clustering slow; set a cap (e.g. 5000).")
             if args.limit:
@@ -173,8 +173,8 @@ def main() -> int:
             # t.co links and expand_urls is a no-op for them (only own tweets can expand).
             # Harmless under the default strip_urls:true; surface it only if a user relies
             # on expansion without stripping, so the inconsistency isn't silent.
-            if cfg["clean"]["expand_urls"] and not cfg["clean"]["strip_urls"]:
-                print("[clean] note: liked tweets lack URL entities — their t.co links "
+            if cfg["filter"]["expand_urls"] and not cfg["filter"]["strip_urls"]:
+                print("[filter] note: liked tweets lack URL entities — their t.co links "
                       "won't be expanded (only your own tweets can be).")
             for lk in likes_raw:
                 ft = lk.get("fullText")
@@ -195,14 +195,14 @@ def main() -> int:
                     "created_at": None,
                 })
                 n_like += 1
-            print(f"[clean] folded in {n_like} liked tweets (themes-only)")
+            print(f"[filter] folded in {n_like} liked tweets (themes-only)")
 
     n = write_jsonl(out, kept)
     n_notown = sum(1 for r in kept if not r["is_own"])
     n_rt = n_notown - n_like
-    print(f"[clean] kept {n} ({n - n_notown} own + {n_rt} retweets + {n_like} likes) -> {out}")
+    print(f"[filter] kept {n} ({n - n_notown} own + {n_rt} retweets + {n_like} likes) -> {out}")
     # `dup` here is exact repeats folded into dup_count (emphasis), not discarded rows.
-    print(f"[clean] dropped: {counts}")
+    print(f"[filter] dropped: {counts}")
     return 0
 
 

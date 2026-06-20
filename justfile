@@ -15,8 +15,8 @@ setup:
 parse *args:
     {{py}} {{s}}/01_parse.py {{args}}
 
-# 02 — filter + clean.
-clean *args:
+# 02 — filter + clean tweets.
+filter *args:
     {{py}} {{s}}/02_filter_clean.py {{args}}
 
 # 03 — embed + cluster + name themes.
@@ -47,8 +47,13 @@ export *args:
 eval *args:
     {{py}} {{s}}/09_eval.py {{args}}
 
+# Theme discovery only (parse -> filter -> themes). Stop here to review/edit
+# data/subjects.txt before scoring, since stage 04 balances across clusters.
+discover: parse filter themes
+    @echo "Next: review data/subjects.txt, then just score  ->  just label"
+
 # Data pipeline up to the shortlist (then hand-label, then build + train).
-all: parse clean themes score
+all: parse filter themes score
     @echo "Next: just label  ->  just data  ->  just train (uv sync --extra train first)  ->  just export  ->  just eval"
 
 # Fast smoke test of the data stages on a small sample. Writes to a throwaway dir
@@ -67,3 +72,26 @@ dry-run:
     {{py}} -c "import json,os; d=os.environ['BWEN_DATA_DIR']; rows=[json.loads(l) for l in open(d+'/shortlist.jsonl')][:5]; open(d+'/labeled.jsonl','w').write(''.join(json.dumps({'id':str(r['id']),'prompt':'test prompt','completion':r['text'],'subject':r.get('subject')})+chr(10) for r in rows))"
     {{py}} {{s}}/06_build_dataset.py
     echo "dry-run OK (isolated; real data/ untouched)"
+
+# Remove generated pipeline artifacts so the next run starts fresh. Keeps your
+# hand-labeled pairs (data/labeled.jsonl, stage 05) since they can't be regenerated.
+# Never touches twitter-archive/, config.yaml, eval_prompts.txt, or Modelfile.
+clean:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f data/labeled.jsonl ]; then
+        tmp=$(mktemp)
+        cp data/labeled.jsonl "$tmp"
+        rm -rf data runs .dryrun {{s}}/__pycache__
+        mkdir -p data
+        mv "$tmp" data/labeled.jsonl
+        echo "[clean] removed generated artifacts; kept data/labeled.jsonl"
+    else
+        rm -rf data runs .dryrun {{s}}/__pycache__
+        echo "[clean] removed generated artifacts"
+    fi
+
+# Like clean, but ALSO deletes hand-labeled pairs — a full reset. Use with care.
+clean-all:
+    rm -rf data runs .dryrun {{s}}/__pycache__
+    @echo "[clean-all] removed all generated data, including data/labeled.jsonl"

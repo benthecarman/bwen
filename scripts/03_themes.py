@@ -114,8 +114,8 @@ def main() -> int:
     args = base_argparser(__doc__).parse_args()
     cfg = load_config(args.config)
     ddir = data_dir(cfg)
-    require_file(ddir / "clean" / "tweets.jsonl", "stage 02 (just clean)")
-    rows = read_jsonl(ddir / "clean" / "tweets.jsonl")
+    require_file(ddir / "filtered" / "tweets.jsonl", "stage 02 (just filter)")
+    rows = read_jsonl(ddir / "filtered" / "tweets.jsonl")
     if args.limit:
         rows = rows[: args.limit]
     out = ddir / "candidates.jsonl"
