@@ -102,7 +102,11 @@ def main() -> int:
 
     write_jsonl(scored_out, rows)
 
-    # Round-robin across clusters by combined score (own tweets only).
+    # Round-robin across clusters by combined score (own tweets only). HDBSCAN labels
+    # off-theme tweets as cluster -1 (noise), often a large fraction of points; giving
+    # it an equal rotation slot would pack the shortlist with off-theme tweets, so we
+    # exclude it from the rotation and only backfill from it if the real clusters can't
+    # fill the target.
     by_cluster: dict[int, list[dict]] = defaultdict(list)
     for r in own:
         by_cluster[r.get("cluster", -1)].append(r)
@@ -113,8 +117,8 @@ def main() -> int:
     balance = scfg["balance_across_clusters"]
     shortlist: list[dict] = []
     if balance:
-        cursors = {c: 0 for c in by_cluster}
-        clusters = sorted(by_cluster)
+        clusters = sorted(c for c in by_cluster if c != -1)
+        cursors = {c: 0 for c in clusters}
         while len(shortlist) < target and any(cursors[c] < len(by_cluster[c]) for c in clusters):
             for c in clusters:
                 if cursors[c] < len(by_cluster[c]):
@@ -122,12 +126,18 @@ def main() -> int:
                     cursors[c] += 1
                     if len(shortlist) >= target:
                         break
+        if len(shortlist) < target and -1 in by_cluster:
+            backfill = by_cluster[-1][: target - len(shortlist)]
+            if backfill:
+                print(f"[score] real clusters under target; backfilling {len(backfill)} from noise")
+            shortlist.extend(backfill)
     else:
         shortlist = sorted(own, key=combined, reverse=True)[:target]
 
     write_jsonl(shortlist_out, shortlist)
+    n_theme_clusters = len([c for c in by_cluster if c != -1])
     print(f"[score] wrote {len(rows)} scored -> {scored_out}")
-    print(f"[score] wrote {len(shortlist)} shortlist (across {len(by_cluster)} clusters) -> {shortlist_out}")
+    print(f"[score] wrote {len(shortlist)} shortlist (across {n_theme_clusters} clusters) -> {shortlist_out}")
     return 0
 
 

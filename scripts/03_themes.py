@@ -75,6 +75,10 @@ def cluster(emb: np.ndarray, cfg: dict) -> np.ndarray:
 def centroid_distances(emb: np.ndarray, labels: np.ndarray) -> np.ndarray:
     dist = np.zeros(len(emb), dtype=np.float32)
     for lab in set(labels):
+        if lab == -1:
+            # HDBSCAN noise isn't a coherent cluster — a centroid over it is meaningless,
+            # so leave noise points at distance 0 rather than ranking noise by noise.
+            continue
         idx = np.where(labels == lab)[0]
         centroid = emb[idx].mean(axis=0)
         dist[idx] = np.linalg.norm(emb[idx] - centroid, axis=1)
