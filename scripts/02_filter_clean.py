@@ -151,6 +151,13 @@ def main() -> int:
                 cap = min(cap, args.limit) if cap else args.limit
             if cap and len(likes_raw) > cap:
                 likes_raw = random.Random(cfg["train"]["seed"]).sample(likes_raw, cap)
+            # Likes carry only fullText — no `entities` — so build_url_map can't map their
+            # t.co links and expand_urls is a no-op for them (only own tweets can expand).
+            # Harmless under the default strip_urls:true; surface it only if a user relies
+            # on expansion without stripping, so the inconsistency isn't silent.
+            if cfg["clean"]["expand_urls"] and not cfg["clean"]["strip_urls"]:
+                print("[clean] note: liked tweets lack URL entities — their t.co links "
+                      "won't be expanded (only your own tweets can be).")
             for lk in likes_raw:
                 ft = lk.get("fullText")
                 if not ft:
