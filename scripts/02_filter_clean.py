@@ -6,7 +6,8 @@
   `is_own: false` so they enrich theme discovery (stage 03) ONLY — stages 04 and 06
   filter to is_own=true, so a retweet is never labeled or trained on (it's not your words).
 - Expands t.co links to their real URLs (or strips trailing media links).
-- De-dupes near-identical text.
+- Folds repeats of the same text (ignoring case/punctuation/emoji) into a dup_count
+  instead of dropping them, so a recurring catchphrase can be emphasized downstream.
 - Keeps a small, useful set of fields.
 
 Output: data/clean/tweets.jsonl
@@ -27,6 +28,19 @@ RT_PREFIX_RE = re.compile(r"^RT @\w+:\s*")
 MENTION_ONLY_RE = re.compile(r"^(?:@\w+\s*)+$")
 LEADING_MENTIONS_RE = re.compile(r"^(?:@\w+\s+)+")
 WS_RE = re.compile(r"\s+")
+# Anything that isn't a word char or whitespace — i.e. punctuation and emoji. \w is
+# Unicode-aware so accented letters/other scripts are kept; only symbols are dropped.
+PUNCT_EMOJI_RE = re.compile(r"[^\w\s]", re.UNICODE)
+
+
+def dedup_key(text: str) -> str:
+    """Normalized key for folding exact-ish repeats into one dup_count.
+
+    Lowercases, drops punctuation/emoji, and collapses whitespace so a catchphrase
+    and its variants ('fuck the bears', 'Fuck the bears!', 'fuck the bears 🐻') all
+    map to the same key and accumulate. The original text is kept for display.
+    """
+    return WS_RE.sub(" ", PUNCT_EMOJI_RE.sub(" ", text.lower())).strip()
 
 
 def build_url_map(tweet: dict) -> dict[str, str | None]:
@@ -87,7 +101,7 @@ def main() -> int:
     acct_id = str(cfg["account_id"])
 
     kept: list[dict] = []
-    seen: set[str] = set()
+    seen: dict[str, int] = {}   # normalized text -> index in `kept`, to fold dups into a count
     counts = {"rt": 0, "lang": 0, "empty": 0, "short": 0, "reply_other": 0, "dup": 0}
 
     for t in raw:
@@ -115,15 +129,19 @@ def main() -> int:
             counts["short"] += 1
             continue
 
-        key = WS_RE.sub(" ", text.lower())
+        key = dedup_key(text)
         if key in seen:
+            # Don't discard exact repeats — fold them into a count so a phrase you tweet
+            # over and over (a catchphrase) can be emphasized in the voice layer later.
+            kept[seen[key]]["dup_count"] += 1
             counts["dup"] += 1
             continue
-        seen.add(key)
+        seen[key] = len(kept)
 
         kept.append({
             "id": t.get("id_str") or t.get("id"),
             "text": text,
+            "dup_count": 1,             # times this exact text was tweeted (>=1)
             "is_own": not is_retweet,   # retweets are context-only: themes yes, training no
             "favorite_count": int(t.get("favorite_count", 0) or 0),
             "retweet_count": int(t.get("retweet_count", 0) or 0),
@@ -165,12 +183,13 @@ def main() -> int:
                 text = clean_text({"full_text": ft}, cfg)
                 if not text or MENTION_ONLY_RE.match(text) or len(text) < min_chars:
                     continue
-                key = WS_RE.sub(" ", text.lower())
+                key = dedup_key(text)
                 if key in seen:
                     continue
-                seen.add(key)
+                seen[key] = len(kept)
                 kept.append({
-                    "id": lk.get("tweetId"), "text": text, "is_own": False,
+                    # likes are themes-only and never trained, so dup_count stays 1 here
+                    "id": lk.get("tweetId"), "text": text, "dup_count": 1, "is_own": False,
                     "favorite_count": 0, "retweet_count": 0, "is_reply": False,
                     "is_self_reply": False, "in_reply_to_screen_name": None,
                     "created_at": None,
@@ -182,6 +201,7 @@ def main() -> int:
     n_notown = sum(1 for r in kept if not r["is_own"])
     n_rt = n_notown - n_like
     print(f"[clean] kept {n} ({n - n_notown} own + {n_rt} retweets + {n_like} likes) -> {out}")
+    # `dup` here is exact repeats folded into dup_count (emphasis), not discarded rows.
     print(f"[clean] dropped: {counts}")
     return 0
 

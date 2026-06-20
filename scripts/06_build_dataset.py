@@ -87,9 +87,20 @@ def main() -> int:
         thresh = dcfg["voice_dedup_threshold"]
         kept_pool = [r for r in pool if not _near_dup(_tokens(r["text"]), eval_refs, thresh)]
         n_leak = len(pool) - len(kept_pool)
+        # A tweet repeated verbatim (a catchphrase) carries dup_count > 1 from stage 02.
+        # Emphasize it by emitting it that many times. cap controls the ceiling:
+        #   0 -> unlimited (use the full dup_count), 1 -> no emphasis (one copy each),
+        #   >1 -> capped so one phrase can't swamp the voice layer.
+        cap = dcfg["voice_max_repeat"]
+        n_emph = 0
         for r in kept_pool:
-            rows.append({"type": "text", "text": r["text"]})
+            dc = max(1, int(r.get("dup_count", 1)))
+            reps = dc if cap == 0 else (1 if cap <= 1 else min(dc, cap))
+            n_emph += reps - 1
+            for _ in range(reps):
+                rows.append({"type": "text", "text": r["text"]})
         print(f"[build] voice layer: {len(kept_pool)} raw tweets"
+              + (f" (+{n_emph} repeated for emphasis)" if n_emph else "")
               + (f" ({n_leak} dropped as eval near-duplicates)" if n_leak else ""))
 
     rng.shuffle(rows)
