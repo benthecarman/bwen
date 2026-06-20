@@ -62,7 +62,7 @@ def main() -> int:
     while i < len(todo):
         r = todo[i]
         print(f"[{len(labeled)} done] cluster={r.get('subject','?')} "
-              f"♥{fav(r)} op={r.get('opinion_score','-')} vo={r.get('voice_score','-')}")
+              f"likes={fav(r)} op={r.get('opinion_score','-')} vo={r.get('voice_score','-')}")
         print(f"  TWEET: {r['text']}")
         print(f"  https://x.com/{handle}/status/{r['id']}\n")  # open for thread context
         try:
