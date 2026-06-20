@@ -16,8 +16,11 @@ from common import REPO_ROOT, base_argparser, data_dir, load_config, ollama_gene
 
 def gen(model: str, prompt: str, system: str) -> str:
     try:
+        # Greedy decoding: the scorecard's job is a consistent signal across data/epoch/
+        # LoRA tweaks, so it must be deterministic — sampling would conflate noise with
+        # real changes. (Day-to-day "what does it sound like" sampling lives in `ollama run`.)
         return ollama_generate(model, prompt, system=system + " /no_think",
-                               options={"temperature": 0.8}).strip()
+                               options={"temperature": 0}).strip()
     except Exception as e:  # noqa: BLE001
         return f"[error: {e}]"
 
