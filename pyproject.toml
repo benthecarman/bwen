@@ -11,7 +11,8 @@ dependencies = [
     "numpy>=1.26",
     "requests>=2.31",       # talk to the local Ollama HTTP API
     "scikit-learn>=1.4",    # kmeans + metrics for clustering
-    "hdbscan>=0.8.33",      # density clustering for theme discovery
+    "hdbscan>=0.8.33",      # density clustering for theme discovery (set themes.algorithm:
+                            # kmeans in config.yaml to avoid it if the wheel won't build)
     "tqdm>=4.66",
 ]
 

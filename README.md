@@ -84,6 +84,8 @@ ollama run bwen
 - `dataset.voice_pool_size` — size of the raw-tweet voice layer.
 - `train.epochs`, `learning_rate`, `lora_rank` — start low; watch for overfit on a small set.
 - `themes.algorithm` / `hdbscan_min_cluster_size` / `kmeans_k` — cluster granularity.
+  If `hdbscan` won't build (it's historically friction-prone on new Python / NumPy),
+  set `themes.algorithm: kmeans` — it uses only scikit-learn and needs no extra wheel.
 - `clean.include_retweets` / `clean.include_likes` (+ `max_likes`) — let retweets and
   liked tweets enrich theme discovery (denser clusters, broader topic map). They're tagged
   `is_own:false` and never labeled or trained on — training stays your words only.
