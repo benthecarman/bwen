@@ -124,7 +124,10 @@ def main() -> int:
     ollama_preflight()
 
     texts = [r["text"] for r in rows]
-    emb = get_embeddings(texts, cfg["themes"]["embed_model"], ddir / "embeddings.npy", args.force)
+    # A --limit run embeds only a subset; keep it out of embeddings.npy so it can't
+    # clobber the full-archive cache the README suggests reusing for RAG.
+    cache = ddir / (f"embeddings.limit{args.limit}.npy" if args.limit else "embeddings.npy")
+    emb = get_embeddings(texts, cfg["themes"]["embed_model"], cache, args.force)
     emb = normalize(emb)
 
     print("[themes] clustering...")
