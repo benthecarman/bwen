@@ -62,6 +62,9 @@ themes:
     enabled: true
     distance_threshold: 0.58  # group fine clusters by label+example similarity (cosine);
                               # lower = more, finer themes; higher = fewer, broader
+    max_theme_share: 0.08     # any theme bigger than this fraction of all tweets is
+                              # recursively re-split at a tighter threshold (0 = off), so
+                              # a dominant topic can't stay one giant blob
     examples_per_label: 3     # tweets per label used for grouping context + naming
 
 # --- Scoring + shortlist (step 04) ---

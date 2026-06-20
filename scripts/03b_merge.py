@@ -51,20 +51,52 @@ def _normalize(x: np.ndarray) -> np.ndarray:
     return x / np.clip(np.linalg.norm(x, axis=1, keepdims=True), 1e-9, None)
 
 
-def group_clusters(clusters: dict[int, dict], embed_model: str, threshold: float) -> dict[int, int]:
-    """Embed each cluster's label+examples, agglomeratively group -> {cluster_id: group_id}."""
+def _agglom(emb: np.ndarray, threshold: float) -> np.ndarray:
+    from sklearn.cluster import AgglomerativeClustering
+    return AgglomerativeClustering(n_clusters=None, metric="cosine", linkage="complete",
+                                   distance_threshold=threshold).fit_predict(emb)
+
+
+# Tightening schedule + caps for the recursive split (sensible internals, not config).
+_SPLIT_FACTOR = 0.8   # multiply the threshold each time we descend into an oversized theme
+_MIN_THRESHOLD = 0.2  # don't split below this (avoids shattering tiny distinctions)
+_MAX_DEPTH = 4
+
+
+def group_clusters(clusters: dict[int, dict], embed_model: str, threshold: float,
+                   max_share: float) -> dict[int, int]:
+    """Embed each cluster's label+examples, then group with a recursive agglomerative
+    split: a single global threshold can't serve uneven density (the dominant topic
+    stays one blob while sparse topics split fine), so any theme over `max_share` of all
+    tweets is re-clustered at a tighter threshold until every theme is under the cap.
+    Returns {cluster_id: group_id}.
+    """
     cids = list(clusters)
     reprs = [f"{clusters[c]['label']}: " + " | ".join(clusters[c]["examples"]) for c in cids]
     vecs: list[list[float]] = []
     for i in range(0, len(reprs), 128):
         vecs.extend(ollama_embed(embed_model, reprs[i:i + 128]))
     emb = _normalize(np.asarray(vecs, dtype=np.float32))
-    if len(cids) < 2:
-        return {c: 0 for c in cids}
-    from sklearn.cluster import AgglomerativeClustering
-    labels = AgglomerativeClustering(n_clusters=None, metric="cosine", linkage="complete",
-                                     distance_threshold=threshold).fit_predict(emb)
-    return {c: int(g) for c, g in zip(cids, labels)}
+    counts = [clusters[c]["count"] for c in cids]
+    total = sum(counts)
+    cap = max(1, int(total * max_share)) if max_share > 0 else total + 1  # 0 = no splitting
+
+    def split(idxs: list[int], thr: float, depth: int) -> list[list[int]]:
+        size = sum(counts[i] for i in idxs)
+        if size <= cap or len(idxs) < 2 or thr < _MIN_THRESHOLD or depth >= _MAX_DEPTH:
+            return [idxs]
+        buckets: dict[int, list[int]] = collections.defaultdict(list)
+        for i, lab in zip(idxs, _agglom(emb[idxs], thr)):
+            buckets[int(lab)].append(i)
+        if len(buckets) == 1:                       # cohesive at thr — tighten and retry
+            return split(idxs, thr * _SPLIT_FACTOR, depth + 1)
+        out: list[list[int]] = []
+        for grp in buckets.values():
+            out.extend(split(grp, thr * _SPLIT_FACTOR, depth + 1))
+        return out
+
+    groups = split(list(range(len(cids))), threshold, 0)
+    return {cids[i]: gid for gid, grp in enumerate(groups) for i in grp}
 
 
 def name_group(member_labels: list[str], example_texts: list[str], model: str) -> str:
@@ -100,7 +132,7 @@ def main() -> int:
 
     print(f"[merge] grouping {len(clusters)} clusters by label+example similarity...")
     cluster_to_group = group_clusters(clusters, cfg["themes"]["embed_model"],
-                                      mcfg["distance_threshold"])
+                                      mcfg["distance_threshold"], mcfg["max_theme_share"])
     members: dict[int, list[int]] = collections.defaultdict(list)
     for cid, g in cluster_to_group.items():
         members[g].append(cid)
@@ -120,9 +152,10 @@ def main() -> int:
         print(f"[merge]   {size:5d} tweets, {len(member_clusters):2d} clusters: {group_name[g]}")
 
     # Resolve duplicate names (independent naming can collide) by appending the group id.
-    counts = collections.Counter(group_name.values())
+    # Case-insensitive so "Bitcoin Technology" and "Bitcoin technology" don't both stand.
+    counts = collections.Counter(n.lower() for n in group_name.values())
     for g, name in group_name.items():
-        if counts[name] > 1:
+        if counts[name.lower()] > 1:
             group_name[g] = f"{name} ({g})"
 
     # Tally size + member sub-labels per theme, then id themes largest-first.
