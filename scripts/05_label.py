@@ -48,6 +48,7 @@ def main() -> int:
 
     todo = [r for r in pool if str(r["id"]) not in done_ids and str(r["id"]) not in skipped]
     target = cfg["dataset"]["label_target"]
+    handle = cfg["handle"]
 
     print(f"\n{'='*70}\n  {len(labeled)} labeled · target {target} · {len(todo)} candidates left"
           f"\n  Commands: <text>=save · <empty>=skip · b=back · q=quit\n{'='*70}\n")
@@ -62,7 +63,8 @@ def main() -> int:
         r = todo[i]
         print(f"[{len(labeled)} done] cluster={r.get('subject','?')} "
               f"♥{fav(r)} op={r.get('opinion_score','-')} vo={r.get('voice_score','-')}")
-        print(f"  TWEET: {r['text']}\n")
+        print(f"  TWEET: {r['text']}")
+        print(f"  https://x.com/{handle}/status/{r['id']}\n")  # open for thread context
         try:
             ans = input("  Prompt> ").strip()
         except (EOFError, KeyboardInterrupt):
