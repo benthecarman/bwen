@@ -45,6 +45,10 @@ def main() -> int:
           f"\n  Commands: <text>=save · <empty>=skip · b=back · q=quit\n{'='*70}\n")
 
     fav = lambda r: r.get("favorite_count", 0)
+    # Undo stack of (action, id). Both saving and skipping advance `i`, so `b` must
+    # know which the previous action was: undoing a save pops labeled, undoing a skip
+    # un-skips. Keying off labeled alone would wrongly drop a good label after a skip.
+    history: list[tuple[str, str]] = []
     i = 0
     while i < len(todo):
         r = todo[i]
@@ -60,19 +64,27 @@ def main() -> int:
         if ans == "q":
             break
         if ans == "b":
-            if labeled and i > 0:
-                last = labeled.pop()
-                done_ids.discard(str(last["id"]))
-                i -= 1
+            if not history:
+                print("  (nothing to undo)\n")
+                continue
+            action, last_id = history.pop()
+            if action == "save":
+                labeled.pop()
+                done_ids.discard(last_id)
                 # rewrite file without the popped row
                 with open(labeled_path, "w") as f:
                     for row in labeled:
                         f.write(json.dumps(row, ensure_ascii=False) + "\n")
-                print("  (reverted previous)\n")
+            else:  # "skip"
+                skipped.discard(last_id)
+                skip_path.write_text(json.dumps(sorted(skipped)))
+            i -= 1
+            print(f"  (reverted previous {action})\n")
             continue
         if ans == "":
             skipped.add(str(r["id"]))
             skip_path.write_text(json.dumps(sorted(skipped)))
+            history.append(("skip", str(r["id"])))
             i += 1
             continue
 
@@ -82,6 +94,7 @@ def main() -> int:
         done_ids.add(str(r["id"]))
         with open(labeled_path, "a") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        history.append(("save", str(r["id"])))
         i += 1
         print(f"  saved ({len(labeled)}/{target})\n")
 
