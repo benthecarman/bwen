@@ -23,8 +23,16 @@ uv pip install -e .            # light data-pipeline deps
 cp config.example.yaml config.yaml             # then edit: handle, account_id, models
 cp eval_prompts.example.txt eval_prompts.txt   # then edit with prompts from your domain
 cp Modelfile.example Modelfile                 # then edit with your handle
-ollama pull nomic-embed-text   # embedding model for clustering
+
+# Pull every Ollama model the pipeline uses (names must match your config.yaml):
+ollama pull nomic-embed-text   # themes.embed_model — clustering (stage 03)
+ollama pull qwen2.5:7b         # score.llm_model    — scorer/cluster-namer (stages 03-04)
+ollama pull qwen3:1.7b         # eval.base_model_tag — untuned base for the eval (stage 09)
 ```
+
+Pulling these up front avoids a connection/404 error mid-run. If you change any of
+`themes.embed_model`, `score.llm_model`, or `eval.base_model_tag` in `config.yaml`,
+pull the model you switched to instead.
 
 Get your archive: X → Settings → *Download an archive of your data*. Unzip so the
 `data/` folder is at `twitter-archive/data/` (or point `paths.archive_dir` at it).
