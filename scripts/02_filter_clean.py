@@ -141,6 +141,10 @@ def main() -> int:
         else:
             likes_raw = json.loads(likes_path.read_text(encoding="utf-8"))
             cap = cfg["clean"]["max_likes"]  # 0 = no cap (use all likes)
+            if not cap and not args.limit:
+                print(f"[clean] WARNING: max_likes:0 (uncapped) — folding in all "
+                      f"{len(likes_raw)} likes. A large likes set swamps your own tweets "
+                      f"in theme discovery and makes clustering slow; set a cap (e.g. 5000).")
             if args.limit:
                 cap = min(cap, args.limit) if cap else args.limit
             if cap and len(likes_raw) > cap:
