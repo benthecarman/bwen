@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from common import base_argparser, data_dir, load_config, read_jsonl
+from common import apply_subject_edits, base_argparser, data_dir, load_config, read_jsonl
 
 
 def main() -> int:
@@ -28,6 +28,9 @@ def main() -> int:
     shortlist = read_jsonl(ddir / "shortlist.jsonl")
     if args.limit:
         shortlist = shortlist[: args.limit]
+    # Honor edits made to subjects.txt after the shortlist was written, so the labels
+    # shown here (and recorded in labeled.jsonl) reflect any renames/merges.
+    apply_subject_edits(shortlist, ddir)
 
     labeled_path = ddir / "labeled.jsonl"
     skip_path = ddir / "label_skip.json"

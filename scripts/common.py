@@ -87,6 +87,49 @@ def read_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+# ---- Subjects (hand-editable theme labels) ----
+
+def load_subject_edits(ddir: Path) -> dict[int, str]:
+    """Map cluster id -> (possibly hand-edited) subject from data/subjects.txt.
+
+    Stage 03 writes one line per non-noise cluster in sorted cluster-id order, derived
+    from the full candidate set; we rebuild that order from candidates.jsonl so the
+    mapping is stable even when applied to a subset (e.g. the shortlist). Returns {} if
+    subjects.txt is absent or its line count no longer matches the clusters (a user
+    added/removed lines) — callers then keep the labels baked into candidates.jsonl.
+    """
+    subjects_path = ddir / "subjects.txt"
+    cand_path = ddir / "candidates.jsonl"
+    if not subjects_path.exists() or not cand_path.exists():
+        return {}
+    subjects = [l.strip() for l in subjects_path.read_text().splitlines() if l.strip()]
+    clusters = sorted({int(r["cluster"]) for r in read_jsonl(cand_path)
+                       if int(r.get("cluster", -1)) != -1})
+    if len(subjects) != len(clusters):
+        print(f"[subjects] subjects.txt has {len(subjects)} lines but {len(clusters)} "
+              f"non-noise clusters — ignoring edits (rename/merge lines, don't add/remove)")
+        return {}
+    return dict(zip(clusters, subjects))
+
+
+def apply_subject_edits(rows: list[dict], ddir: Path) -> int:
+    """Overwrite each row's `subject` with the edited label for its cluster.
+
+    Returns the number of rows whose subject changed. Rows in a noise cluster (-1) or a
+    cluster absent from the map are left untouched.
+    """
+    mapping = load_subject_edits(ddir)
+    if not mapping:
+        return 0
+    n = 0
+    for r in rows:
+        c = int(r.get("cluster", -1))
+        if c in mapping and r.get("subject") != mapping[c]:
+            r["subject"] = mapping[c]
+            n += 1
+    return n
+
+
 # ---- Ollama ----
 
 def ollama_embed(model: str, texts: list[str]) -> list[list[float]]:

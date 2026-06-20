@@ -17,8 +17,8 @@ from collections import defaultdict
 
 from tqdm import tqdm
 
-from common import (base_argparser, data_dir, load_config, maybe_skip,
-                    ollama_generate, read_jsonl, write_jsonl)
+from common import (apply_subject_edits, base_argparser, data_dir, load_config,
+                    maybe_skip, ollama_generate, read_jsonl, write_jsonl)
 
 SCORE_SCHEMA = {
     "type": "object",
@@ -71,6 +71,12 @@ def main() -> int:
     shortlist_out = ddir / "shortlist.jsonl"
     if maybe_skip(shortlist_out, args.force):
         return 0
+
+    # Pick up any renames/merges made to subjects.txt after stage 03 so the edited
+    # theme labels flow into the shortlist, the labeling UI, and eval.jsonl.
+    n_edit = apply_subject_edits(rows, ddir)
+    if n_edit:
+        print(f"[score] applied {n_edit} subjects.txt edit(s) to candidate subjects")
 
     for r in rows:
         r["heuristic"] = round(heuristic_score(r), 4)
