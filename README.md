@@ -84,7 +84,10 @@ ollama run bwen
 - `score.shortlist_size` / `dataset.label_target` — how many pairs you hand-write.
 - `dataset.voice_pool_size` — size of the raw-tweet voice layer.
 - `train.epochs`, `learning_rate`, `lora_rank` — start low; watch for overfit on a small set.
-- `themes.algorithm` / `hdbscan_min_cluster_size` / `kmeans_k` — cluster granularity.
+- `themes.cluster` — `algorithm` (`hdbscan`|`kmeans`), `hdbscan.min_cluster_size`, `kmeans.k` — cluster granularity.
+- `themes.reduce.method` — `pca` (default) | `umap` | `none`. UMAP gives tighter, better-separated
+  topic clusters with less noise. Tune with `themes.reduce.umap.neighbors` (smaller = finer/more
+  topics) and `umap.min_dist`.
   If `hdbscan` won't build (it's historically friction-prone on new Python / NumPy),
   set `themes.algorithm: kmeans` — it uses only scikit-learn and needs no extra wheel.
 - `filter.include_retweets` / `filter.include_likes` (+ `max_likes`) — let retweets and

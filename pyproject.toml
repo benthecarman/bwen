@@ -13,6 +13,7 @@ dependencies = [
     "scikit-learn>=1.4",    # kmeans + metrics for clustering
     "hdbscan>=0.8.33",      # density clustering for theme discovery (set themes.algorithm:
                             # kmeans in config.yaml to avoid it if the wheel won't build)
+    "umap-learn>=0.5",      # nonlinear dim reduction for theme discovery (themes.reduce: umap)
     "tqdm>=4.66",
 ]
 

@@ -31,12 +31,29 @@ filter:
 # --- Theme discovery (step 03) ---
 themes:
   embed_model: nomic-embed-text   # an Ollama embedding model (`ollama pull nomic-embed-text`)
-  algorithm: hdbscan              # hdbscan | kmeans
-  reduce_dims: 50                 # PCA dims before clustering (0 = off). High-dim embeds cluster poorly.
-  kmeans_k: 25                    # only used when algorithm == kmeans
-  hdbscan_min_cluster_size: 15    # min tweets to form an HDBSCAN cluster; bigger = fewer, broader
-  name_clusters: true             # use the LLM to name each cluster -> subjects.txt
-  reps_per_cluster: 15            # representative tweets surfaced per cluster
+
+  # Dimensionality reduction before clustering (high-dim embeds cluster poorly).
+  reduce:
+    method: pca                   # pca | umap | none
+    pca:
+      dims: 50                    # PCA target dims
+    umap:                         # nonlinear; tighter, better-separated clusters, less noise
+      components: 5               # output dims
+      neighbors: 15               # local/global balance — smaller = finer, more topics
+      min_dist: 0.0               # point packing — low = tighter blobs, better for clustering
+
+  # Clustering algorithm.
+  cluster:
+    algorithm: hdbscan            # hdbscan | kmeans
+    hdbscan:
+      min_cluster_size: 15        # min tweets to form a cluster; bigger = fewer, broader
+    kmeans:
+      k: 25                       # number of clusters
+
+  # LLM names each cluster -> subjects.txt for you to review/merge.
+  naming:
+    enabled: true
+    reps_per_cluster: 15          # representative tweets shown to the namer per cluster
 
 # --- Scoring + shortlist (step 04) ---
 score:

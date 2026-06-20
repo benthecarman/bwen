@@ -51,8 +51,19 @@ def normalize(x: np.ndarray) -> np.ndarray:
 
 
 def reduce(emb: np.ndarray, cfg: dict) -> np.ndarray:
-    """PCA reduction — HDBSCAN/k-means cluster poorly on raw high-dim embeddings."""
-    n = cfg["themes"]["reduce_dims"]
+    """Reduce dims before clustering — HDBSCAN/k-means cluster poorly on raw high-dim
+    embeddings. pca: linear, fast, deterministic. umap: nonlinear manifold — tighter,
+    better-separated clusters and less noise, but stochastic and needs the umap extra.
+    none: cluster on the raw embeddings.
+    """
+    rc = cfg["themes"]["reduce"]
+    method = rc["method"]
+    if method == "none":
+        return emb
+    if method == "umap":
+        return _umap_reduce(emb, rc["umap"], cfg["train"]["seed"])
+    # pca (default)
+    n = rc["pca"]["dims"]
     if not n or n >= emb.shape[1]:
         return emb
     from sklearn.decomposition import PCA
@@ -60,15 +71,35 @@ def reduce(emb: np.ndarray, cfg: dict) -> np.ndarray:
     return PCA(n_components=n, random_state=42).fit_transform(emb)
 
 
+def _umap_reduce(emb: np.ndarray, uc: dict, seed: int) -> np.ndarray:
+    import umap  # lazy: importing numba/llvmlite is slow and only needed for reduce: umap
+    n_samples = emb.shape[0]
+    n_neighbors = min(uc["neighbors"], n_samples - 1)
+    n_components = min(uc["components"], emb.shape[1])
+    if n_samples <= n_components + 2 or n_neighbors < 2:
+        print(f"[themes] too few points ({n_samples}) for UMAP; skipping reduction")
+        return emb
+    print(f"[themes] UMAP -> {n_components}d (n_neighbors={n_neighbors}, "
+          f"min_dist={uc['min_dist']})")
+    # cosine matches our normalized embeddings; seed makes the (stochastic) layout reproducible.
+    return umap.UMAP(
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        min_dist=uc["min_dist"],
+        metric="cosine",
+        random_state=seed,
+    ).fit_transform(emb)
+
+
 def cluster(emb: np.ndarray, cfg: dict) -> np.ndarray:
     emb = reduce(emb, cfg)
-    algo = cfg["themes"]["algorithm"]
-    if algo == "kmeans":
+    cc = cfg["themes"]["cluster"]
+    if cc["algorithm"] == "kmeans":
         from sklearn.cluster import KMeans
-        k = cfg["themes"]["kmeans_k"]
+        k = cc["kmeans"]["k"]
         return KMeans(n_clusters=k, random_state=42, n_init="auto").fit_predict(emb)
     import hdbscan
-    mcs = cfg["themes"]["hdbscan_min_cluster_size"]
+    mcs = cc["hdbscan"]["min_cluster_size"]
     return hdbscan.HDBSCAN(min_cluster_size=mcs, metric="euclidean").fit_predict(emb)
 
 
@@ -139,9 +170,9 @@ def main() -> int:
     dist = centroid_distances(emb, labels)
 
     names: dict[int, str] = {}
-    if cfg["themes"]["name_clusters"]:
+    if cfg["themes"]["naming"]["enabled"]:
         names = name_clusters(rows, labels, dist, cfg["score"]["llm_model"],
-                              cfg["themes"]["reps_per_cluster"])
+                              cfg["themes"]["naming"]["reps_per_cluster"])
         subjects = [names[l] for l in sorted(set(labels)) if l != -1]
         subjects_path = ddir / "subjects.txt"
         subjects_path.write_text("\n".join(subjects) + "\n")
