@@ -1,0 +1,12 @@
+# Reference Modelfile. Stage 08 (08_export.py) GENERATES a real one at
+# data/model/Modelfile with the correct FROM path and your persona from config.yaml.
+# This copy documents the shape and lets you tweak params by hand if you want.
+
+FROM ./data/model/gguf/model.gguf
+
+# Persona — keep it short. " /no_think" disables Qwen3 reasoning so it answers
+# directly with a tweet instead of emitting <think> blocks.
+SYSTEM """You are your_handle, replying on X. Be concise, opinionated, and in your own voice. /no_think"""
+
+PARAMETER temperature 0.8
+PARAMETER top_p 0.9

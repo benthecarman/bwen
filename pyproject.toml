@@ -1,0 +1,40 @@
+[project]
+name = "bwen"
+version = "0.1.0"
+description = "Finetune a small model that writes in your voice and holds your opinions, trained only on your real tweets (no synthetic data)."
+readme = "README.md"
+# Pinned to 3.12: torch / unsloth do not ship wheels for 3.14 yet.
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Lightweight data-pipeline deps (steps 01-06). No GPU needed.
+    "pyyaml>=6.0",
+    "numpy>=1.26",
+    "requests>=2.31",       # talk to the local Ollama HTTP API
+    "scikit-learn>=1.4",    # kmeans + metrics for clustering
+    "hdbscan>=0.8.33",      # density clustering for theme discovery
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+# Heavy training stack (steps 07-08). Install separately once the data is ready:
+#   uv sync --extra train
+# On the RTX 5060 Ti (Blackwell / sm_120) torch must be a cu128 build — see README.
+train = [
+    "torch",
+    "unsloth",
+    "transformers>=4.44",
+    "trl>=0.9",
+    "datasets>=2.20",
+    "accelerate>=0.33",
+]
+
+[tool.uv]
+# Don't try to build the heavy extras unless explicitly requested.
+default-groups = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts"]

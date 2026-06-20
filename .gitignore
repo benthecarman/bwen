@@ -1,0 +1,20 @@
+# Personal data — never commit
+twitter-archive/
+data/
+.dryrun/
+runs/
+config.yaml
+eval_prompts.txt
+Modelfile
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.uv/
+uv.lock.tmp
+
+# Models / large artifacts
+*.gguf
+*.safetensors
+*.npy

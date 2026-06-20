@@ -1,0 +1,9 @@
+# Copy this to eval_prompts.txt and replace with prompts from YOUR domain.
+# One prompt per line (lines starting with # are ignored). These run through both the
+# base and tuned models in stage 09 alongside the held-out set, so you can see whether
+# the model holds your opinions and voice. eval_prompts.txt is gitignored (personal).
+What's your hot take on this?
+Agree or disagree: more is better.
+What do most people get wrong about your field?
+Sell me on the thing you care most about.
+What's an opinion you hold that others find controversial?

@@ -1,0 +1,79 @@
+# Copy this to config.yaml and edit. config.yaml is gitignored (it points at your
+# personal archive). Everything person-specific lives here — no values are hardcoded
+# in the scripts, so anyone can run this pipeline on their own Twitter/X export.
+
+# --- Who ---
+# Your X handle (without @) and numeric account id. The account id is in
+# twitter-archive/data/account.js ("accountId"). Used to detect self-reply threads.
+handle: your_handle
+account_id: "000000000"
+
+# --- Paths ---
+paths:
+  archive_dir: twitter-archive/data   # where your export's data/ folder lives
+  data_dir: data                      # all generated artifacts go here (gitignored)
+  runs_dir: runs                      # eval scorecards
+
+# --- Cleaning / filtering (step 02) ---
+clean:
+  languages: [en]            # keep only these langs; [] = keep all
+  include_retweets: false    # true = keep RTs (tagged is_own:false) to enrich theme
+                             # discovery ONLY; they're never labeled or trained on
+  include_likes: false       # same idea for liked tweets (a strong interest signal)
+  max_likes: 5000            # cap likes so they don't swamp your own tweets (0 = all)
+  drop_replies_to_others: false  # keep replies (we curate by quality later)
+  min_chars: 12              # drop very short tweets after cleaning
+  strip_urls: true           # remove ALL urls from text (a generated url is always a hallucination)
+  expand_urls: false         # (ignored when strip_urls is true) replace t.co with expanded_url
+  strip_trailing_media_url: true
+  strip_leading_mentions: true   # drop the "@a @b" addressing prefix on replies (not voice)
+
+# --- Theme discovery (step 03) ---
+themes:
+  embed_model: nomic-embed-text   # an Ollama embedding model (`ollama pull nomic-embed-text`)
+  algorithm: hdbscan              # hdbscan | kmeans
+  reduce_dims: 50                 # PCA dims before clustering (0 = off). High-dim embeds cluster poorly.
+  kmeans_k: 25                    # only used when algorithm == kmeans
+  hdbscan_min_cluster_size: 15
+  name_clusters: true             # use the LLM to name each cluster -> subjects.txt
+  reps_per_cluster: 15            # representative tweets surfaced per cluster
+
+# --- Scoring + shortlist (step 04) ---
+score:
+  llm_model: qwen2.5:7b      # local Ollama instruct model used ONLY as a scorer/filter
+  use_llm: true              # false = heuristics only
+  llm_score_pool: 1500       # only LLM-score the top-N by heuristic (saves time)
+  shortlist_size: 300        # how many tweets to surface for hand-labeling
+  balance_across_clusters: true
+
+# --- Dataset build (step 06) ---
+dataset:
+  label_target: 300          # how many hand-labeled pairs you're aiming for (display only)
+  # System persona prepended to instruction pairs. Describe yourself briefly.
+  persona: "You are {handle}, replying on X. Be concise, opinionated, and in your own voice."
+  voice_layer: true          # include raw tweets (no prompt) to reinforce style
+  voice_pool_size: 3000      # max raw tweets in the voice layer
+  voice_min_score: 0         # min heuristic score for a tweet to enter the voice layer
+  eval_holdout: 20           # instruction pairs held out for eval
+
+# --- Training (step 07) ---
+train:
+  base_model: unsloth/Qwen3-1.7B   # swap to an ~8B model to scale up; everything else unchanged
+  max_seq_len: 1024
+  epochs: 3
+  learning_rate: 2.0e-4
+  lora_rank: 16
+  lora_alpha: 16
+  batch_size: 8
+  grad_accum: 2
+  seed: 42
+  output_dir: data/model
+
+# --- Export / deploy (step 08) ---
+export:
+  gguf_quant: q4_k_m
+  ollama_model_name: myvoice   # name for the finetuned model in Ollama
+
+# --- Eval (step 09) ---
+eval:
+  base_model_tag: qwen3:1.7b   # Ollama tag of the untuned base for side-by-side comparison
