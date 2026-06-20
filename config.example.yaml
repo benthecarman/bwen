@@ -54,6 +54,7 @@ dataset:
   voice_layer: true          # include raw tweets (no prompt) to reinforce style
   voice_pool_size: 3000      # max raw tweets in the voice layer
   voice_min_score: 0         # min heuristic score for a tweet to enter the voice layer
+  voice_dedup_threshold: 0.8 # drop voice tweets with >= this token-Jaccard to an eval ref
   eval_holdout: 20           # instruction pairs held out for eval
 
 # --- Training (step 07) ---

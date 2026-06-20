@@ -14,8 +14,30 @@ Output: data/train.jsonl  (rows tagged {"type": "chat"|"text", ...})
 from __future__ import annotations
 
 import random
+import re
 
 from common import base_argparser, data_dir, load_config, read_jsonl, write_jsonl
+
+_WORD_RE = re.compile(r"\w+")
+
+
+def _tokens(text: str) -> frozenset[str]:
+    return frozenset(_WORD_RE.findall(text.lower()))
+
+
+def _near_dup(tokens: frozenset[str], refs: list[frozenset[str]], thresh: float) -> bool:
+    """True if `tokens` has token-set Jaccard >= thresh with any reference.
+
+    Stage 02 only drops exact duplicates, so a lightly-reworded near-duplicate of an
+    eval reference can otherwise survive into the voice layer and contaminate eval.
+    """
+    if not tokens:
+        return False
+    for r in refs:
+        union = len(tokens | r)
+        if union and len(tokens & r) / union >= thresh:
+            return True
+    return False
 
 
 def main() -> int:
@@ -59,9 +81,16 @@ def main() -> int:
                 and r.get("heuristic", 0) >= dcfg["voice_min_score"]]
         pool.sort(key=lambda r: r.get("heuristic", 0), reverse=True)
         pool = pool[: dcfg["voice_pool_size"]]
-        for r in pool:
+        # Exclude near-duplicates of eval references (id exclusion above only catches
+        # exact reuse) so a reworded copy of a held-out tweet can't leak into training.
+        eval_refs = [_tokens(r["completion"]) for r in eval_rows]
+        thresh = dcfg["voice_dedup_threshold"]
+        kept_pool = [r for r in pool if not _near_dup(_tokens(r["text"]), eval_refs, thresh)]
+        n_leak = len(pool) - len(kept_pool)
+        for r in kept_pool:
             rows.append({"type": "text", "text": r["text"]})
-        print(f"[build] voice layer: {len(pool)} raw tweets")
+        print(f"[build] voice layer: {len(kept_pool)} raw tweets"
+              + (f" ({n_leak} dropped as eval near-duplicates)" if n_leak else ""))
 
     rng.shuffle(rows)
     write_jsonl(ddir / "train.jsonl", rows)
