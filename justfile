@@ -51,12 +51,19 @@ eval *args:
 all: parse clean themes score
     @echo "Next: just label  ->  just data  ->  just train (uv sync --extra train first)  ->  just export  ->  just eval"
 
-# Fast smoke test of every data stage on a small sample. Writes to a throwaway dir
+# Fast smoke test of the data stages on a small sample. Writes to a throwaway dir
 # (BWEN_DATA_DIR) so it never poisons the real data/ artifacts that later stages reuse.
+# Stage 05 is interactive, so we seed a stub labeled.jsonl to still exercise stage 06.
 dry-run:
-    BWEN_DATA_DIR=.dryrun {{py}} {{s}}/01_parse.py --limit 200 --force
-    BWEN_DATA_DIR=.dryrun {{py}} {{s}}/02_filter_clean.py --limit 200 --force
-    BWEN_DATA_DIR=.dryrun {{py}} {{s}}/03_themes.py --force
-    BWEN_DATA_DIR=.dryrun {{py}} {{s}}/04_score.py --force
-    rm -rf .dryrun
-    @echo "dry-run OK (isolated; real data/ untouched)"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export BWEN_DATA_DIR=.dryrun
+    trap 'rm -rf "$BWEN_DATA_DIR"' EXIT   # clean up even if a stage fails
+    {{py}} {{s}}/01_parse.py --limit 200 --force
+    {{py}} {{s}}/02_filter_clean.py --limit 200 --force
+    {{py}} {{s}}/03_themes.py --force
+    {{py}} {{s}}/04_score.py --force
+    # Stand in for the interactive stage 05: turn a few shortlist rows into labeled pairs.
+    {{py}} -c "import json,os; d=os.environ['BWEN_DATA_DIR']; rows=[json.loads(l) for l in open(d+'/shortlist.jsonl')][:5]; open(d+'/labeled.jsonl','w').write(''.join(json.dumps({'id':str(r['id']),'prompt':'test prompt','completion':r['text'],'subject':r.get('subject')})+chr(10) for r in rows))"
+    {{py}} {{s}}/06_build_dataset.py
+    echo "dry-run OK (isolated; real data/ untouched)"

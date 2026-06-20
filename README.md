@@ -32,7 +32,7 @@ Get your archive: X → Settings → *Download an archive of your data*. Unzip s
 ## Run the data pipeline
 
 ```bash
-just dry-run        # smoke-test every stage on a 200-tweet sample first
+just dry-run        # smoke-test the data stages (01-04, 06) on a 200-tweet sample first
 just all            # 01 parse → 02 clean → 03 themes → 04 score  (full)
 $EDITOR data/subjects.txt   # review/merge the auto-discovered themes
 just label          # hand-write prompts for the shortlist (resumable)
