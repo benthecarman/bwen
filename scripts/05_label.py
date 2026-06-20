@@ -10,6 +10,9 @@ Terminal tool, resumable. For each tweet:
   - Enter on an empty line to skip (won't be shown again)
   - `b` to redo the previous tweet, `q` to save and quit
 
+Draws from the full balanced candidate pool (not just the fixed shortlist), so a skip is
+topped up by the next-best candidate — skipping never shrinks the set you can label.
+
 Output: data/labeled.jsonl  ({id, prompt, completion, subject})
         data/label_skip.json (ids you skipped, so they don't reappear)
 """
@@ -18,21 +21,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from common import (apply_subject_edits, base_argparser, data_dir, load_config,
-                    read_jsonl, require_file)
+from common import (apply_subject_edits, balanced_order, base_argparser, data_dir,
+                    load_config, read_jsonl, require_file)
 
 
 def main() -> int:
     args = base_argparser(__doc__).parse_args()
     cfg = load_config(args.config)
     ddir = data_dir(cfg)
-    require_file(ddir / "shortlist.jsonl", "stage 04 (just score)")
-    shortlist = read_jsonl(ddir / "shortlist.jsonl")
+    require_file(ddir / "candidates_scored.jsonl", "stage 04 (just score)")
+    rows = read_jsonl(ddir / "candidates_scored.jsonl")
+    # Own tweets only (retweets/likes are context for themes, never labeled), ordered by
+    # the same balanced round-robin as the shortlist — so we top up in priority order.
+    own = [r for r in rows if r.get("is_own", True)]
+    # Honor edits made to subjects.txt after scoring, so labels shown here reflect renames.
+    apply_subject_edits(own, ddir)
+    pool = balanced_order(own)
     if args.limit:
-        shortlist = shortlist[: args.limit]
-    # Honor edits made to subjects.txt after the shortlist was written, so the labels
-    # shown here (and recorded in labeled.jsonl) reflect any renames/merges.
-    apply_subject_edits(shortlist, ddir)
+        pool = pool[: args.limit]
 
     labeled_path = ddir / "labeled.jsonl"
     skip_path = ddir / "label_skip.json"
@@ -40,10 +46,10 @@ def main() -> int:
     done_ids = {str(r["id"]) for r in labeled}
     skipped = set(json.loads(skip_path.read_text())) if skip_path.exists() else set()
 
-    todo = [r for r in shortlist if str(r["id"]) not in done_ids and str(r["id"]) not in skipped]
+    todo = [r for r in pool if str(r["id"]) not in done_ids and str(r["id"]) not in skipped]
     target = cfg["dataset"]["label_target"]
 
-    print(f"\n{'='*70}\n  {len(labeled)} labeled so far · {len(todo)} remaining in shortlist"
+    print(f"\n{'='*70}\n  {len(labeled)} labeled · target {target} · {len(todo)} candidates left"
           f"\n  Commands: <text>=save · <empty>=skip · b=back · q=quit\n{'='*70}\n")
 
     fav = lambda r: r.get("favorite_count", 0)
@@ -98,7 +104,8 @@ def main() -> int:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
         history.append(("save", str(r["id"])))
         i += 1
-        print(f"  saved ({len(labeled)}/{target})\n")
+        hit = "  🎯 target reached — keep going or q to stop" if len(labeled) >= target else ""
+        print(f"  saved ({len(labeled)}/{target}){hit}\n")
 
     print(f"\n[label] {len(labeled)} labeled total -> {labeled_path}")
     return 0

@@ -108,6 +108,41 @@ def read_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+# ---- Candidate ranking (shared by stage 04 shortlist + stage 05 labeling) ----
+
+def combined_score(r: dict) -> float:
+    """Rank score: LLM opinion+voice (when present) plus a touch of engagement heuristic."""
+    if "opinion_score" in r:
+        return r["opinion_score"] + r["voice_score"] + 0.25 * r.get("heuristic", 0.0)
+    return r.get("heuristic", 0.0)
+
+
+def balanced_order(rows: list[dict], target: int | None = None) -> list[dict]:
+    """Order rows round-robin across themes (theme_id, or cluster as fallback) by
+    combined_score, best first, so coverage is broad rather than dominated by one topic.
+    Noise (-1) is excluded from the rotation and appended last (backfill). Returns at most
+    `target` rows, or all of them when target is None (the full ranked pool)."""
+    from collections import defaultdict
+    by: dict[int, list[dict]] = defaultdict(list)
+    for r in rows:
+        by[r.get("theme_id", r.get("cluster", -1))].append(r)
+    for lst in by.values():
+        lst.sort(key=combined_score, reverse=True)
+    groups = sorted(c for c in by if c != -1)
+    out: list[dict] = []
+    cursors = {c: 0 for c in groups}
+    while (target is None or len(out) < target) and any(cursors[c] < len(by[c]) for c in groups):
+        for c in groups:
+            if cursors[c] < len(by[c]):
+                out.append(by[c][cursors[c]])
+                cursors[c] += 1
+                if target is not None and len(out) >= target:
+                    break
+    if -1 in by:  # backfill / tail from noise
+        out.extend(by[-1] if target is None else by[-1][: max(0, target - len(out))])
+    return out
+
+
 # ---- Persona / Qwen3 thinking ----
 
 NO_THINK = "/no_think"  # Qwen3 directive: answer directly instead of emitting <think> blocks

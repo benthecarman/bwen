@@ -13,12 +13,12 @@ Output: data/candidates_scored.jsonl  (all candidates + scores)
 from __future__ import annotations
 
 import math
-from collections import defaultdict
 
 from tqdm import tqdm
 
-from common import (apply_subject_edits, base_argparser, data_dir, load_config, maybe_skip,
-                    ollama_generate, ollama_preflight, read_jsonl, require_file, write_jsonl)
+from common import (apply_subject_edits, balanced_order, base_argparser, combined_score,
+                    data_dir, load_config, maybe_skip, ollama_generate, ollama_preflight,
+                    read_jsonl, require_file, write_jsonl)
 
 SCORE_SCHEMA = {
     "type": "object",
@@ -51,12 +51,6 @@ def llm_score(text: str, model: str) -> tuple[int, int]:
                            options={"temperature": 0})
     d = json.loads(resp)
     return int(d["opinion_score"]), int(d["voice_score"])
-
-
-def combined(r: dict) -> float:
-    if "opinion_score" in r:
-        return r["opinion_score"] + r["voice_score"] + 0.25 * r["heuristic"]
-    return r["heuristic"]
 
 
 def main() -> int:
@@ -104,45 +98,18 @@ def main() -> int:
 
     write_jsonl(scored_out, rows)
 
-    # Round-robin across themes (the merged groups from stage 03b) by combined score,
-    # own tweets only; fall back to the fine clusters if the merge hasn't run. HDBSCAN
-    # labels off-theme tweets as -1 (noise), often a large fraction of points; giving it
-    # an equal rotation slot would pack the shortlist with off-theme tweets, so we
-    # exclude it from the rotation and only backfill from it if the groups can't fill the
-    # target.
-    def group_key(r: dict) -> int:
-        return r.get("theme_id", r.get("cluster", -1))
-    by_cluster: dict[int, list[dict]] = defaultdict(list)
-    for r in own:
-        by_cluster[group_key(r)].append(r)
-    for lst in by_cluster.values():
-        lst.sort(key=combined, reverse=True)
-
+    # Balanced round-robin across themes (stage 05 tops up from candidates_scored using
+    # the same ordering, so skips never shrink the labelable set below the target).
     target = scfg["shortlist_size"]
-    balance = scfg["balance_across_clusters"]
-    shortlist: list[dict] = []
-    if balance:
-        clusters = sorted(c for c in by_cluster if c != -1)
-        cursors = {c: 0 for c in clusters}
-        while len(shortlist) < target and any(cursors[c] < len(by_cluster[c]) for c in clusters):
-            for c in clusters:
-                if cursors[c] < len(by_cluster[c]):
-                    shortlist.append(by_cluster[c][cursors[c]])
-                    cursors[c] += 1
-                    if len(shortlist) >= target:
-                        break
-        if len(shortlist) < target and -1 in by_cluster:
-            backfill = by_cluster[-1][: target - len(shortlist)]
-            if backfill:
-                print(f"[score] real clusters under target; backfilling {len(backfill)} from noise")
-            shortlist.extend(backfill)
+    if scfg["balance_across_clusters"]:
+        shortlist = balanced_order(own, target)
     else:
-        shortlist = sorted(own, key=combined, reverse=True)[:target]
+        shortlist = sorted(own, key=combined_score, reverse=True)[:target]
 
     write_jsonl(shortlist_out, shortlist)
-    n_theme_clusters = len([c for c in by_cluster if c != -1])
+    n_themes = len({r.get("theme_id", r.get("cluster", -1)) for r in own} - {-1})
     print(f"[score] wrote {len(rows)} scored -> {scored_out}")
-    print(f"[score] wrote {len(shortlist)} shortlist (across {n_theme_clusters} clusters) -> {shortlist_out}")
+    print(f"[score] wrote {len(shortlist)} shortlist (across {n_themes} themes) -> {shortlist_out}")
     return 0
 
 
