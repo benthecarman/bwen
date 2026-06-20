@@ -25,7 +25,7 @@ filter:
   min_chars: 12              # drop very short tweets after cleaning
   strip_urls: true           # remove ALL urls from text (a generated url is always a hallucination)
   expand_urls: false         # (ignored when strip_urls is true) replace t.co with expanded_url
-  strip_trailing_media_url: true
+  strip_trailing_media_url: true   # when expanding urls, drop the auto-appended media (pic/video) link
   strip_leading_mentions: true   # drop the "@a @b" addressing prefix on replies (not voice)
 
 # --- Theme discovery (step 03) ---
@@ -34,7 +34,7 @@ themes:
   algorithm: hdbscan              # hdbscan | kmeans
   reduce_dims: 50                 # PCA dims before clustering (0 = off). High-dim embeds cluster poorly.
   kmeans_k: 25                    # only used when algorithm == kmeans
-  hdbscan_min_cluster_size: 15
+  hdbscan_min_cluster_size: 15    # min tweets to form an HDBSCAN cluster; bigger = fewer, broader
   name_clusters: true             # use the LLM to name each cluster -> subjects.txt
   reps_per_cluster: 15            # representative tweets surfaced per cluster
 
@@ -44,7 +44,7 @@ score:
   use_llm: true              # false = heuristics only
   llm_score_pool: 1500       # only LLM-score the top-N by heuristic (saves time)
   shortlist_size: 300        # how many tweets to surface for hand-labeling
-  balance_across_clusters: true
+  balance_across_clusters: true   # true = round-robin clusters for broad coverage; false = global top-N
 
 # --- Dataset build (step 06) ---
 dataset:
@@ -62,19 +62,19 @@ dataset:
 # --- Training (step 07) ---
 train:
   base_model: unsloth/Qwen3-1.7B   # swap to an ~8B model to scale up; everything else unchanged
-  max_seq_len: 1024
-  epochs: 3
-  learning_rate: 2.0e-4
-  lora_rank: 16
-  lora_alpha: 16
-  batch_size: 8
-  grad_accum: 2
-  seed: 42
-  output_dir: data/model
+  max_seq_len: 1024               # max tokens per example; longer sequences are truncated
+  epochs: 3                       # passes over the data; more can overfit a small set
+  learning_rate: 2.0e-4           # LoRA learning rate (1e-4–2e-4 is the usual range)
+  lora_rank: 16                   # LoRA rank — adapter capacity; higher = more trainable params
+  lora_alpha: 16                  # LoRA scaling factor; commonly set equal to lora_rank
+  batch_size: 8                   # examples per GPU step (lower if you hit CUDA OOM)
+  grad_accum: 2                   # steps to accumulate; effective batch = batch_size * grad_accum
+  seed: 42                        # RNG seed for reproducible runs
+  output_dir: data/model          # LoRA adapter, checkpoints, and GGUF export land here
 
 # --- Export / deploy (step 08) ---
 export:
-  gguf_quant: q4_k_m
+  gguf_quant: q4_k_m           # llama.cpp quantization for the exported GGUF (q4_k_m = 4-bit)
   ollama_model_name: myvoice   # name for the finetuned model in Ollama
 
 # --- Eval (step 09) ---
