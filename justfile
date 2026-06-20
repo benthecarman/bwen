@@ -23,6 +23,10 @@ filter *args:
 themes *args:
     {{py}} {{s}}/03_themes.py {{args}}
 
+# 03b — compress fine clusters into higher-level themes (-> data/themes.yaml).
+merge *args:
+    {{py}} {{s}}/03b_merge.py {{args}}
+
 # 04 — score + select shortlist.
 score *args:
     {{py}} {{s}}/04_score.py {{args}}
@@ -47,13 +51,13 @@ export *args:
 eval *args:
     {{py}} {{s}}/09_eval.py {{args}}
 
-# Theme discovery only (parse -> filter -> themes). Stop here to review/edit
-# data/subjects.txt before scoring, since stage 04 balances across clusters.
-discover: parse filter themes
-    @echo "Next: review data/subjects.txt, then just score  ->  just label"
+# Theme discovery only (parse -> filter -> themes -> merge). Stop here to review/edit
+# data/themes.yaml before scoring, since stage 04 balances across the merged themes.
+discover: parse filter themes merge
+    @echo "Next: review data/themes.yaml, then just score  ->  just label"
 
 # Data pipeline up to the shortlist (then hand-label, then build + train).
-all: parse filter themes score
+all: parse filter themes merge score
     @echo "Next: just label  ->  just data  ->  just train  ->  just export  ->  just eval"
 
 # Fast smoke test of the data stages on a small sample. Writes to a throwaway dir
@@ -67,6 +71,7 @@ dry-run:
     {{py}} {{s}}/01_parse.py --limit 200 --force
     {{py}} {{s}}/02_filter_clean.py --limit 200 --force
     {{py}} {{s}}/03_themes.py --force
+    {{py}} {{s}}/03b_merge.py --force
     {{py}} {{s}}/04_score.py --force
     # Stand in for the interactive stage 05: turn a few shortlist rows into labeled pairs.
     {{py}} -c "import json,os; d=os.environ['BWEN_DATA_DIR']; rows=[json.loads(l) for l in open(d+'/shortlist.jsonl')][:5]; open(d+'/labeled.jsonl','w').write(''.join(json.dumps({'id':str(r['id']),'prompt':'test prompt','completion':r['text'],'subject':r.get('subject')})+chr(10) for r in rows))"

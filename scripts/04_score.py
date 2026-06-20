@@ -104,14 +104,17 @@ def main() -> int:
 
     write_jsonl(scored_out, rows)
 
-    # Round-robin across clusters by combined score (own tweets only). HDBSCAN labels
-    # off-theme tweets as cluster -1 (noise), often a large fraction of points; giving
-    # it an equal rotation slot would pack the shortlist with off-theme tweets, so we
-    # exclude it from the rotation and only backfill from it if the real clusters can't
-    # fill the target.
+    # Round-robin across themes (the merged groups from stage 03b) by combined score,
+    # own tweets only; fall back to the fine clusters if the merge hasn't run. HDBSCAN
+    # labels off-theme tweets as -1 (noise), often a large fraction of points; giving it
+    # an equal rotation slot would pack the shortlist with off-theme tweets, so we
+    # exclude it from the rotation and only backfill from it if the groups can't fill the
+    # target.
+    def group_key(r: dict) -> int:
+        return r.get("theme_id", r.get("cluster", -1))
     by_cluster: dict[int, list[dict]] = defaultdict(list)
     for r in own:
-        by_cluster[r.get("cluster", -1)].append(r)
+        by_cluster[group_key(r)].append(r)
     for lst in by_cluster.values():
         lst.sort(key=combined, reverse=True)
 

@@ -41,9 +41,9 @@ Get your archive: X → Settings → *Download an archive of your data*. Unzip s
 
 ```bash
 just dry-run        # smoke-test the data stages (01-04, 06) on a 200-tweet sample first
-just discover       # 01 parse → 02 filter → 03 themes  (stop to review subjects)
-just all            # 01 parse → 02 filter → 03 themes → 04 score  (full)
-$EDITOR data/subjects.txt   # review/merge the auto-discovered themes
+just discover       # 01 parse → 02 filter → 03 themes → 03b merge  (stop to review themes)
+just all            # 01 parse → 02 filter → 03 themes → 03b merge → 04 score  (full)
+$EDITOR data/themes.yaml    # review/merge the compressed themes
 just label          # hand-write prompts for the shortlist (resumable)
 just data           # build train.jsonl (chat pairs + voice layer) + eval.jsonl
 ```
@@ -71,6 +71,7 @@ ollama run bwen
 | 01 parse | `scripts/01_parse.py` | `data/raw/tweets.json` |
 | 02 filter | `scripts/02_filter_clean.py` | `data/filtered/tweets.jsonl` |
 | 03 themes | `scripts/03_themes.py` | `data/candidates.jsonl`, `data/subjects.txt`, `data/embeddings.npy` |
+| 03b merge | `scripts/03b_merge.py` | `data/themes.yaml` (+ `theme`/`theme_id` on candidates) |
 | 04 score | `scripts/04_score.py` | `data/candidates_scored.jsonl`, `data/shortlist.jsonl` |
 | 05 label | `scripts/05_label.py` | `data/labeled.jsonl` |
 | 06 build | `scripts/06_build_dataset.py` | `data/train.jsonl`, `data/eval.jsonl` |
@@ -88,7 +89,10 @@ ollama run bwen
   topic clusters with less noise. Tune with `themes.reduce.umap.neighbors` (smaller = finer/more
   topics) and `umap.min_dist`.
   If `hdbscan` won't build (it's historically friction-prone on new Python / NumPy),
-  set `themes.algorithm: kmeans` — it uses only scikit-learn and needs no extra wheel.
+  set `themes.cluster.algorithm: kmeans` — it uses only scikit-learn and needs no extra wheel.
+- `themes.merge.distance_threshold` — how aggressively stage 03b compresses the fine clusters
+  into themes (cosine). Lower = more, finer themes; higher = fewer, broader. The theme count
+  emerges from the data — there's no target. Set `themes.merge.enabled: false` to skip it.
 - `filter.include_retweets` / `filter.include_likes` (+ `max_likes`) — let retweets and
   liked tweets enrich theme discovery (denser clusters, broader topic map). They're tagged
   `is_own:false` and never labeled or trained on — training stays your words only.

@@ -55,6 +55,14 @@ themes:
     enabled: true
     reps_per_cluster: 15          # representative tweets shown to the namer per cluster
 
+  # Stage 03b: compress the fine clusters into higher-level themes. Clusters whose
+  # centroids are closer than distance_threshold (cosine) merge; the number of themes
+  # emerges from the data — no target count. Lower = more, finer themes; higher = fewer,
+  # broader. ~0.45 collapses hundreds of micro-clusters into a few dozen balanced themes.
+  merge:
+    enabled: true
+    distance_threshold: 0.45
+
 # --- Scoring + shortlist (step 04) ---
 score:
   llm_model: qwen2.5:7b      # local Ollama instruct model used ONLY as a scorer/filter
