@@ -137,10 +137,16 @@ side by side → `runs/<timestamp>.md`. This is the iteration signal.
 
 ---
 
-## 4. Scaling up
+## 4. Model size & scaling
 
-The pipeline is model-agnostic: change `train.base_model` and rerun. This project went **1.7B →
-14B**. On a 16 GB GPU, 14B needs **QLoRA** (`load_in_4bit: true`, small batch + grad accumulation).
+The pipeline works with any Unsloth-supported base (Llama, Mistral, Gemma, Qwen3, …) — change
+`train.base_model` and rerun; nothing else changes. (The thinking-mode handling above is
+Qwen3-specific and harmlessly no-ops on non-reasoning models.) A small base is cheap to iterate
+with and a larger one is more coherent — a good workflow is to settle your data/prompts on a small
+model, then rerun the train→export→eval stages on a bigger one.
+
+This project went **1.7B → 14B**. On a 16 GB GPU, 14B needs **QLoRA** (`load_in_4bit: true`, small
+batch + grad accumulation).
 The catch is *export*: merging 14B back to 16-bit for GGUF needs ~28 GB, so on a low-RAM box add
 swap to let it spill to disk. The 14B was markedly more coherent and on-message than the 1.7B (e.g.
 it knew DLCs are oracle contracts on Bitcoin where the base model hallucinated "Digital Locker

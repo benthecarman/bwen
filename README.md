@@ -1,8 +1,9 @@
 # bwen — finetune a model that talks like you
 
-Finetune a small model to write in **your voice** and hold **your opinions**, trained on
-**only your real tweets — no synthetic / AI-written training text.** Iterate fast on
-`qwen3:1.7b`, then re-run on a bigger model by changing one config value.
+Finetune a model to write in **your voice** and hold **your opinions**, trained on
+**only your real tweets — no synthetic / AI-written training text.** Works with any
+Unsloth-supported base (Llama, Mistral, Gemma, Qwen3, …); switching models is one config
+value (`train.base_model`).
 
 - **How it works (full methodology):** [docs/PROCESS.md](docs/PROCESS.md)
 - **Example model:** [benthecarman/bwen-14b](https://huggingface.co/benthecarman/bwen-14b)
@@ -116,11 +117,15 @@ ollama run bwen
 - `filter.include_retweets` / `filter.include_likes` (+ `max_likes`) — let retweets and
   liked tweets enrich theme discovery (denser clusters, broader topic map). They're tagged
   `is_own:false` and never labeled or trained on — training stays your words only.
-- `train.base_model` — swap to an ~8B model to scale up; everything else is unchanged.
+- `train.base_model` — any Unsloth-supported base. Everything else is unchanged when you
+  switch. (The thinking-mode handling is tuned for Qwen3 and harmlessly no-ops on other models.)
 
-## Scaling up / phase 2
+## Model size & RAG
 
-Once the technique is proven on 1.7B, set `train.base_model` to a larger model (e.g.
-`unsloth/Qwen3-8B`) and rerun 06–09. If the model sounds like you but gets *positions*
-wrong, add RAG over `data/embeddings.npy` (retrieve your real tweets at inference) — voice
-from the finetune, opinions grounded in real quotes.
+`train.base_model` accepts anything Unsloth supports. A small base (~1.7B) is cheap and fast to
+iterate with; a larger one (8B–14B, via `load_in_4bit: true` for QLoRA) is more coherent and
+on-message. A good workflow is to nail your dataset and prompts on a small model, then rerun
+06–09 on a bigger one — only that one config value changes.
+
+If the model sounds like you but gets *positions* wrong, add RAG over `data/embeddings.npy`
+(retrieve your real tweets at inference) — voice from the finetune, opinions grounded in real quotes.
