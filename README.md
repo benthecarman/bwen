@@ -8,14 +8,15 @@ Finetune a small model to write in **your voice** and hold **your opinions**, tr
 - **Example model:** [benthecarman/bwen-14b](https://huggingface.co/benthecarman/bwen-14b)
 - **Example dataset:** [benthecarman/bwen-dataset](https://huggingface.co/datasets/benthecarman/bwen-dataset)
 
-## Why this works (and the prior approach didn't)
+## How it works
 
-- **Curate a small, high-signal subset** instead of dumping 30k+ tweets. Embeddings +
-  clustering surface your real themes and most representative tweets per theme.
-- **You hand-write the prompts** for a few hundred examples. The *completion* is your real
-  tweet; you supply the *prompt*. This kills generic AI-prompt slop **and** solves the
-  missing-context problem — your archive has your replies but not what you replied to, so
-  you reconstruct the intent from memory.
+- **Curate a small, high-signal subset** rather than training on the whole firehose — dumping
+  30k+ tweets averages your voice into a bland mean. Embeddings + clustering surface your real
+  themes and the most representative tweets per theme.
+- **You hand-write the prompts** for a few hundred examples. The *completion* is your real tweet;
+  you supply the *prompt*. So the model learns from your actual words, not from an AI's guess at
+  what you'd be asked — and it solves the missing-context problem: your archive has your replies
+  but not what you replied to, so you reconstruct the intent from memory.
 - A **voice layer** of raw tweets (no prompts) reinforces style for free.
 - An **LLM is used only as a filter/scorer**, never to write training text.
 
