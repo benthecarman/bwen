@@ -90,7 +90,9 @@ dataset:
 
 # --- Training (step 07) ---
 train:
-  base_model: unsloth/Qwen3-1.7B   # swap to an ~8B model to scale up; everything else unchanged
+  base_model: unsloth/Qwen3-1.7B   # swap to a bigger model to scale up; everything else unchanged
+  load_in_4bit: false             # QLoRA 4-bit: required to fit ~8B+ models on 16GB VRAM
+                                  # (small models train fine in 16-bit; leave false)
   max_seq_len: 1024               # max tokens per example; longer sequences are truncated
   epochs: 3                       # passes over the data; more can overfit a small set
   learning_rate: 2.0e-4           # LoRA learning rate (1e-4–2e-4 is the usual range)

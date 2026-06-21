@@ -69,7 +69,7 @@ def main() -> int:
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=tc["base_model"],
         max_seq_length=tc["max_seq_len"],
-        load_in_4bit=False,
+        load_in_4bit=tc["load_in_4bit"],
         dtype=None,
     )
     model = FastLanguageModel.get_peft_model(

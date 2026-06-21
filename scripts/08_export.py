@@ -41,7 +41,7 @@ def main() -> int:
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=str(lora_dir),
             max_seq_length=tc["max_seq_len"],
-            load_in_4bit=False,
+            load_in_4bit=tc["load_in_4bit"],
             dtype=None,
         )
         gguf_dir = out_dir / "gguf"
