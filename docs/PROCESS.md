@@ -37,7 +37,8 @@ Two jobs, kept separate: the **completions** teach voice + opinions (your real w
 
 ## 2. Stack
 
-- Local **RTX 5060 Ti 16 GB** (Blackwell / sm_120 → PyTorch must be a CUDA 12.8 build), **Ollama**.
+- A local **CUDA GPU** (~16 GB VRAM is enough; larger bases need QLoRA), **Ollama**. On a very
+  recent GPU, PyTorch must match the CUDA arch (e.g. a CUDA 12.8 build for Blackwell-class cards).
 - Python pinned to **3.12** (torch/unsloth lack 3.14 wheels).
 - Embeddings + cluster naming run on local Ollama models; finetuning via **Unsloth** (LoRA/QLoRA).
 - Everything is config-driven (`config.yaml`) and run via `just`. No value is hardcoded — point it
@@ -140,7 +141,7 @@ side by side → `runs/<timestamp>.md`. This is the iteration signal.
 
 The pipeline is model-agnostic: change `train.base_model` and rerun. This project went **1.7B →
 14B**. On a 16 GB GPU, 14B needs **QLoRA** (`load_in_4bit: true`, small batch + grad accumulation).
-The catch is *export*: merging 14B back to 16-bit for GGUF needs ~28 GB, so on a 15 GB-RAM box add
+The catch is *export*: merging 14B back to 16-bit for GGUF needs ~28 GB, so on a low-RAM box add
 swap to let it spill to disk. The 14B was markedly more coherent and on-message than the 1.7B (e.g.
 it knew DLCs are oracle contracts on Bitcoin where the base model hallucinated "Digital Locker
 Contracts"), while keeping the blunt, no-hedging voice.

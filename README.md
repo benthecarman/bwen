@@ -69,15 +69,18 @@ embeddings are cached). Every stage takes `--limit N` for fast iteration.
 ## Train, export, evaluate
 
 ```bash
-just train                 # LoRA finetune on the RTX 5060 Ti
+just train                 # LoRA finetune (needs a CUDA GPU)
 just export                # merge → GGUF → `ollama create`
 just eval                  # base vs. tuned scorecard -> runs/<timestamp>.md
 ollama run bwen
 ```
 
-> **Blackwell GPU (RTX 5060 Ti / sm_120):** torch must be a CUDA 12.8 build. If
-> `just train` reports `cuda avail=False` or an sm_120 error, install the cu128 wheel:
-> `uv pip install --extra-index-url https://download.pytorch.org/whl/cu128 torch`
+> **GPU notes:** `just train` prints the detected torch/CUDA/GPU at startup. If it reports
+> `cuda avail=False` or an `sm_XXX` / unsupported-architecture error, your torch build doesn't
+> match your GPU — install the matching CUDA wheel, e.g. for a recent (Blackwell-class) GPU:
+> `uv pip install --extra-index-url https://download.pytorch.org/whl/cu128 torch`.
+> A ~1.7B model trains in 16-bit on a modest GPU; larger models (8B+) need `train.load_in_4bit:
+> true` (QLoRA) to fit ~16 GB of VRAM.
 
 ## Pipeline
 
