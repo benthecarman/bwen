@@ -18,3 +18,4 @@ uv.lock.tmp
 *.gguf
 *.safetensors
 *.npy
+unsloth_compiled_cache/
