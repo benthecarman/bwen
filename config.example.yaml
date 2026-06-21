@@ -67,6 +67,10 @@ themes:
                               # recursively re-split at a tighter threshold (0 = off), so
                               # a dominant topic can't stay one giant blob
     examples_per_label: 3     # tweets per label used for grouping context + naming
+    keyword_themes: {}        # force own tweets containing any keyword into a named theme,
+                              # overriding clustering — for an entity/ticker/name that
+                              # scatters across topics. e.g. {Tesla: ["tesla", "tsla"]}
+                              # (word-boundary, case-insensitive match)
 
 # --- Scoring + shortlist (step 04) ---
 score:

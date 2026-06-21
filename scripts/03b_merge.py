@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import collections
 import json
+import re
 
 import numpy as np
 import yaml
@@ -172,29 +173,54 @@ def main() -> int:
         if counts[name.lower()] > 1:
             group_name[g] = f"{name} ({g})"
 
-    # Tally size + member sub-labels per theme, then id themes largest-first.
-    size_by_name: collections.Counter = collections.Counter()
-    subs: dict[str, set] = collections.defaultdict(set)
+    # id themes largest-first by cluster size, then append any keyword themes.
+    size_by_group: collections.Counter = collections.Counter()
     for g, member_clusters in members.items():
         for c in member_clusters:
-            size_by_name[group_name[g]] += clusters[c]["count"]
-            subs[group_name[g]].add(clusters[c]["label"])
+            size_by_group[group_name[g]] += clusters[c]["count"]
     name_to_id = {name: i for i, name in
-                  enumerate(sorted(size_by_name, key=lambda n: -size_by_name[n]))}
+                  enumerate(sorted(size_by_group, key=lambda n: -size_by_group[n]))}
+
+    # Keyword themes: pull every matching own tweet into a named theme, overriding its
+    # semantic assignment. An entity that scatters across topics (a recurring ticker,
+    # name, project, catchphrase) never forms a cluster; this surfaces it as one theme.
+    # Word-boundary match (alphanumeric boundaries) so a keyword like "dell" hits
+    # "$dell" / "Dell" but not "odell"; matching is case-insensitive.
+    kw_patterns = {
+        name: re.compile(r"(?<![a-z0-9])(?:" + "|".join(re.escape(w.lower()) for w in kws)
+                         + r")(?![a-z0-9])")
+        for name, kws in (mcfg.get("keyword_themes") or {}).items() if kws}
+    for name in kw_patterns:
+        name_to_id.setdefault(name, len(name_to_id))
 
     for r in rows:
         g = cluster_to_group.get(r["cluster"]) if r["cluster"] != -1 else None
         name = group_name.get(g) if g is not None else None
+        if r.get("is_own", True):
+            low = r["text"].lower()
+            for kname, pat in kw_patterns.items():
+                if pat.search(low):
+                    name = kname
+                    break
         r["theme"] = name or "misc/noise"
         r["theme_id"] = name_to_id[name] if name else -1
     write_jsonl(ddir / "candidates.jsonl", rows)
 
+    # themes.yaml from the FINAL per-tweet assignments, so keyword themes appear too.
+    size_by_name: collections.Counter = collections.Counter()
+    subs: dict[str, set] = collections.defaultdict(set)
+    for r in rows:
+        if r["theme_id"] == -1:
+            continue
+        size_by_name[r["theme"]] += 1
+        if r.get("subject"):
+            subs[r["theme"]].add(r["subject"])
     themes = [{
         "name": name,
-        "theme_id": tid,
+        "theme_id": name_to_id[name],
         "tweets": size_by_name[name],
         "subtopics": sorted(s for s in subs[name] if s),
-    } for name, tid in sorted(name_to_id.items(), key=lambda kv: -size_by_name[kv[0]])]
+    } for name in sorted(size_by_name, key=lambda n: -size_by_name[n])]
 
     themes_path = ddir / "themes.yaml"
     with open(themes_path, "w") as f:

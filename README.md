@@ -135,6 +135,10 @@ surfaces tweets you haven't seen, and the score cache means only the new tweets 
   more, finer themes; higher = fewer, broader) and `examples_per_label`. `max_theme_share`
   recursively re-splits any theme bigger than that fraction of all tweets (so a dominant topic
   doesn't stay one giant blob; `0` disables splitting). `enabled: false` to skip.
+  `keyword_themes` (e.g. `{Tesla: ["tesla", "tsla"]}`) force-groups tweets matching a keyword into
+  a named theme — for an entity/ticker/name that scatters across topics and never forms its own
+  cluster. Matching is word-boundary and case-insensitive, so a short keyword won't match inside
+  an unrelated word.
 - `filter.include_retweets` / `filter.include_likes` (+ `max_likes`) — let retweets and
   liked tweets enrich theme discovery (denser clusters, broader topic map). They're tagged
   `is_own:false` and never labeled or trained on — training stays your words only.
