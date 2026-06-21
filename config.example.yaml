@@ -111,3 +111,8 @@ export:
 # --- Eval (step 09) ---
 eval:
   base_model_tag: qwen3:1.7b   # Ollama tag of the untuned base for side-by-side comparison
+
+# --- Ask / RAG (step 10) ---
+rag:
+  top_k: 8              # how many of your own tweets to retrieve as grounding per question
+  show_sources: true    # print the retrieved tweets under each answer

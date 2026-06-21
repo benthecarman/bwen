@@ -135,6 +135,13 @@ Merge the LoRA, convert to **GGUF**, and register an Ollama model. Three gotchas
 Run a fixed prompt set (held-out pairs + `eval_prompts.txt`) through the base model and the tuned one,
 side by side → `runs/<timestamp>.md`. This is the iteration signal.
 
+### 10 — ask / RAG (`scripts/10_ask.py`)
+Optional. The finetune captures *voice* well but its *opinions* are frozen at the archive's date and
+skewed toward your loudest takes. Retrieval fixes that: embed the question with the same model used
+for the corpus, cosine-search your own tweets (`embeddings.npy`, filtered to `is_own`), and feed the
+top matches to the tuned model as grounding. The voice comes from the finetune; the positions come
+from your real quotes. Reuses stage 03's embeddings, so there's no extra setup — `just ask "..."`.
+
 ---
 
 ## 4. Model size & scaling

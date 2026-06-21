@@ -51,6 +51,10 @@ export *args:
 eval *args:
     {{py}} {{s}}/09_eval.py {{args}}
 
+# 10 — "ask my tweets": RAG over your own tweets, answered in your voice.
+ask *args:
+    {{py}} {{s}}/10_ask.py {{args}}
+
 # Theme discovery only (parse -> filter -> themes -> merge). Stop here to review/edit
 # data/themes.yaml before scoring, since stage 04 balances across the merged themes.
 discover: parse filter themes merge

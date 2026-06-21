@@ -76,6 +76,18 @@ just eval                  # base vs. tuned scorecard -> runs/<timestamp>.md
 ollama run bwen
 ```
 
+## Ask your tweets (RAG)
+
+Ground the tuned model in what you *actually* tweeted, not just its impression of you — it
+retrieves your most relevant tweets for a question and answers from them, in your voice:
+
+```bash
+just ask "what do you think about covenants"   # one-shot
+just ask                                        # interactive
+```
+
+Reuses `data/embeddings.npy` from stage 03 (no extra setup). Tune `rag.top_k` / `rag.show_sources`.
+
 > **GPU notes:** `just train` prints the detected torch/CUDA/GPU at startup. If it reports
 > `cuda avail=False` or an `sm_XXX` / unsupported-architecture error, your torch build doesn't
 > match your GPU — install the matching CUDA wheel, e.g. for a recent (Blackwell-class) GPU:
@@ -97,6 +109,7 @@ ollama run bwen
 | 07 train | `scripts/07_train.py` | `data/model/lora/` |
 | 08 export | `scripts/08_export.py` | `data/model/gguf/*.gguf` + Ollama model |
 | 09 eval | `scripts/09_eval.py` | `runs/<timestamp>.md` |
+| 10 ask | `scripts/10_ask.py` | RAG over your tweets, answered in your voice |
 
 ## Knobs worth tuning (all in `config.yaml`)
 
@@ -120,12 +133,13 @@ ollama run bwen
 - `train.base_model` — any Unsloth-supported base. Everything else is unchanged when you
   switch. (The thinking-mode handling is tuned for Qwen3 and harmlessly no-ops on other models.)
 
-## Model size & RAG
+## Model size
 
 `train.base_model` accepts anything Unsloth supports. A small base (~1.7B) is cheap and fast to
 iterate with; a larger one (8B–14B, via `load_in_4bit: true` for QLoRA) is more coherent and
 on-message. A good workflow is to nail your dataset and prompts on a small model, then rerun
 06–09 on a bigger one — only that one config value changes.
 
-If the model sounds like you but gets *positions* wrong, add RAG over `data/embeddings.npy`
-(retrieve your real tweets at inference) — voice from the finetune, opinions grounded in real quotes.
+When the finetune sounds like you but gets *positions* wrong or out of date, reach for
+`just ask` (stage 10): retrieval grounds the answer in your real tweets, so the voice comes
+from the finetune and the opinions come from real quotes.
