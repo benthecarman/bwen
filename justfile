@@ -84,7 +84,7 @@ dry-run:
 
 # Remove generated pipeline artifacts so the next run starts fresh. Your hand-labels,
 # skips, and score cache live in state/ (not data/), so they're untouched — as are
-# twitter-archive/, config.yaml, eval_prompts.txt, and Modelfile.
+# twitter-archive/, config.yaml, and eval_prompts.txt.
 clean:
     rm -rf data runs .dryrun {{s}}/__pycache__
     @echo "[clean] removed generated artifacts (state/ kept)"

@@ -38,7 +38,6 @@ uv venv --python 3.12          # torch/unsloth don't ship 3.14 wheels
 uv pip install -e .            # data-pipeline + training stack (torch cu128, unsloth, ...)
 cp config.example.yaml config.yaml             # then edit: handle, account_id, models
 cp eval_prompts.example.txt eval_prompts.txt   # then edit with prompts from your domain
-cp Modelfile.example Modelfile                 # then edit with your handle
 
 # Pull every Ollama model the pipeline uses (names must match your config.yaml):
 ollama pull nomic-embed-text   # themes.embed_model — clustering (stage 03)

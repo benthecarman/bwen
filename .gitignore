@@ -6,7 +6,6 @@ state/
 runs/
 config.yaml
 eval_prompts.txt
-Modelfile
 
 # Node (this is a Python project; ignore stray npm artifacts)
 node_modules/
