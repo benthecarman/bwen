@@ -10,15 +10,25 @@ Finetune a small model to write in **your voice** and hold **your opinions**, tr
 
 ## How it works
 
-- **Curate a small, high-signal subset** rather than training on the whole firehose — dumping
-  30k+ tweets averages your voice into a bland mean. Embeddings + clustering surface your real
-  themes and the most representative tweets per theme.
-- **You hand-write the prompts** for a few hundred examples. The *completion* is your real tweet;
-  you supply the *prompt*. So the model learns from your actual words, not from an AI's guess at
-  what you'd be asked — and it solves the missing-context problem: your archive has your replies
-  but not what you replied to, so you reconstruct the intent from memory.
-- A **voice layer** of raw tweets (no prompts) reinforces style for free.
-- An **LLM is used only as a filter/scorer**, never to write training text.
+bwen turns your Twitter/X archive into a training set made entirely of your real tweets, then
+LoRA-finetunes a small model on it:
+
+1. **Parse & filter** — pull your tweets from the archive; drop retweets, links, and non-English;
+   clean URLs and the leading `@mentions` on replies.
+2. **Discover themes** — embed every tweet and cluster them (UMAP + HDBSCAN) to map your real
+   topics, then consolidate those into a few dozen named themes.
+3. **Score & shortlist** — rank tweets by engagement plus an LLM opinion/voice score, and pick a
+   theme-balanced shortlist so coverage is broad.
+4. **Hand-label** — for each shortlisted tweet you write a short prompt (the question or situation
+   it answers); the tweet itself is the target. A few hundred pairs.
+5. **Build the dataset** — your prompt→tweet pairs as chat examples, plus a *voice layer* of raw
+   tweets (no prompt) to reinforce style.
+6. **Train, export, evaluate** — LoRA/QLoRA finetune (loss falls only on your tweet, not the
+   prompt), export to GGUF for Ollama, and compare base vs. tuned.
+
+Two things hold throughout: every completion is your real words — there's **no synthetic text**,
+the LLM only ever filters, scores, and names — and the prompt is just the *trigger* while the
+tweet carries the voice and opinions. Full details in **[docs/PROCESS.md](docs/PROCESS.md)**.
 
 ## Setup
 
