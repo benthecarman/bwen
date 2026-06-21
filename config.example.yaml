@@ -11,7 +11,8 @@ account_id: "000000000"
 # --- Paths ---
 paths:
   archive_dir: twitter-archive/data   # where your export's data/ folder lives
-  data_dir: data                      # all generated artifacts go here (gitignored)
+  data_dir: data                      # regenerated artifacts (wiped by `just clean`)
+  state_dir: state                    # kept across runs: hand-labels, skips, score cache
   runs_dir: runs                      # eval scorecards
 
 # --- Filtering / cleaning (step 02) ---

@@ -104,12 +104,20 @@ Reuses `data/embeddings.npy` from stage 03 (no extra setup). Tune `rag.top_k` / 
 | 03 themes | `scripts/03_themes.py` | `data/candidates.jsonl`, `data/subjects.txt`, `data/embeddings.npy` |
 | 03b merge | `scripts/03b_merge.py` | `data/themes.yaml` (+ `theme`/`theme_id` on candidates) |
 | 04 score | `scripts/04_score.py` | `data/candidates_scored.jsonl`, `data/shortlist.jsonl` |
-| 05 label | `scripts/05_label.py` | `data/labeled.jsonl` |
+| 05 label | `scripts/05_label.py` | `state/labeled.jsonl` (+ `state/label_skip.json`) |
 | 06 build | `scripts/06_build_dataset.py` | `data/train.jsonl`, `data/eval.jsonl` |
 | 07 train | `scripts/07_train.py` | `data/model/lora/` |
 | 08 export | `scripts/08_export.py` | `data/model/gguf/*.gguf` + Ollama model |
 | 09 eval | `scripts/09_eval.py` | `runs/<timestamp>.md` |
 | 10 ask | `scripts/10_ask.py` | RAG over your tweets, answered in your voice |
+
+Everything regenerable lives in `data/`; the things you can't (your hand-labels and skips)
+plus the expensive LLM-score cache live in `state/`. `just clean` wipes `data/` and leaves
+`state/` alone.
+
+**Updating from a fresh archive:** point `paths.archive_dir` at the new export, then
+`just clean && just all`. Your labels carry over (keyed by tweet id), `just label` only
+surfaces tweets you haven't seen, and the score cache means only the new tweets get re-scored.
 
 ## Knobs worth tuning (all in `config.yaml`)
 

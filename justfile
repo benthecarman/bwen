@@ -82,20 +82,12 @@ dry-run:
     {{py}} {{s}}/06_build_dataset.py
     echo "dry-run OK (isolated; real data/ untouched)"
 
-# Remove generated pipeline artifacts so the next run starts fresh. Keeps your
-# hand-labeled pairs (data/labeled.jsonl, stage 05) since they can't be regenerated.
-# Never touches twitter-archive/, config.yaml, eval_prompts.txt, or Modelfile.
+# Remove generated pipeline artifacts so the next run starts fresh. Your hand-labels,
+# skips, and score cache live in state/ (not data/), so they're untouched — as are
+# twitter-archive/, config.yaml, eval_prompts.txt, and Modelfile.
 clean:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    keep=(data/labeled.jsonl data/label_skip.json data/score_cache.json)   # hand-labels, skips, LLM-score cache
-    tmp=$(mktemp -d)
-    for f in "${keep[@]}"; do [ -f "$f" ] && cp "$f" "$tmp/"; done
     rm -rf data runs .dryrun {{s}}/__pycache__
-    mkdir -p data
-    for f in "${keep[@]}"; do b=$(basename "$f"); [ -f "$tmp/$b" ] && mv "$tmp/$b" data/; done
-    rm -rf "$tmp"
-    echo "[clean] removed generated artifacts; kept your hand-labels + skips"
+    @echo "[clean] removed generated artifacts (state/ kept)"
 
 # Like clean, but ALSO deletes hand-labeled pairs — a full reset. Use with care.
 clean-all:

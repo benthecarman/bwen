@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 from common import (apply_subject_edits, balanced_order, base_argparser, combined_score,
                     data_dir, load_config, maybe_skip, ollama_generate, ollama_preflight,
-                    read_jsonl, require_file, write_jsonl)
+                    read_jsonl, require_file, state_dir, write_jsonl)
 
 SCORE_SCHEMA = {
     "type": "object",
@@ -103,7 +103,7 @@ def main() -> int:
     scfg = cfg["score"]
     if scfg["use_llm"]:
         model = scfg["llm_model"]
-        cache_path = ddir / "score_cache.json"
+        cache_path = state_dir(cfg) / "score_cache.json"
         cache = load_score_cache(cache_path, model)
         pool_n = scfg["llm_score_pool"]
         pool = sorted(own, key=lambda r: r["heuristic"], reverse=True)[:pool_n]

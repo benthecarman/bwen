@@ -13,8 +13,9 @@ Terminal tool, resumable. For each tweet:
 Draws from the full balanced candidate pool (not just the fixed shortlist), so a skip is
 topped up by the next-best candidate — skipping never shrinks the set you can label.
 
-Output: data/labeled.jsonl  ({id, prompt, completion, subject})
-        data/label_skip.json (ids you skipped, so they don't reappear)
+Output: state/labeled.jsonl  ({id, prompt, completion, subject})
+        state/label_skip.json (ids you skipped, so they don't reappear)
+        (state/ is kept across re-runs; `just clean` never touches it)
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ import json
 from pathlib import Path
 
 from common import (apply_subject_edits, balanced_order, base_argparser, data_dir,
-                    load_config, read_jsonl, require_file)
+                    load_config, read_jsonl, require_file, state_dir)
 
 
 def main() -> int:
@@ -40,8 +41,9 @@ def main() -> int:
     if args.limit:
         pool = pool[: args.limit]
 
-    labeled_path = ddir / "labeled.jsonl"
-    skip_path = ddir / "label_skip.json"
+    sdir = state_dir(cfg)
+    labeled_path = sdir / "labeled.jsonl"
+    skip_path = sdir / "label_skip.json"
     labeled = read_jsonl(labeled_path) if labeled_path.exists() else []
     done_ids = {str(r["id"]) for r in labeled}
     skipped = set(json.loads(skip_path.read_text())) if skip_path.exists() else set()

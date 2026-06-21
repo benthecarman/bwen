@@ -1,6 +1,7 @@
 # Personal data — never commit
 twitter-archive/
 data/
+state/
 .dryrun/
 runs/
 config.yaml

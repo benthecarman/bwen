@@ -61,6 +61,14 @@ def data_dir(cfg: dict) -> Path:
     return d
 
 
+def state_dir(cfg: dict) -> Path:
+    """Files worth keeping across re-runs: your hand-labels, skips, and the LLM-score
+    cache. Lives outside data_dir so `just clean` can wipe data/ wholesale, untouched."""
+    d = REPO_ROOT / cfg["paths"]["state_dir"]
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def archive_dir(cfg: dict) -> Path:
     return REPO_ROOT / cfg["paths"]["archive_dir"]
 

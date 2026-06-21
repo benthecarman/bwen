@@ -16,7 +16,7 @@ from __future__ import annotations
 import random
 import re
 
-from common import base_argparser, data_dir, load_config, read_jsonl, write_jsonl
+from common import base_argparser, data_dir, load_config, read_jsonl, state_dir, write_jsonl
 
 _WORD_RE = re.compile(r"\w+")
 
@@ -48,7 +48,8 @@ def main() -> int:
     seed = cfg["train"]["seed"]
     persona = dcfg["persona"].format(handle=cfg["handle"])
 
-    labeled = read_jsonl(ddir / "labeled.jsonl") if (ddir / "labeled.jsonl").exists() else []
+    labeled_path = state_dir(cfg) / "labeled.jsonl"
+    labeled = read_jsonl(labeled_path) if labeled_path.exists() else []
     if not labeled:
         print("[build] no labeled.jsonl yet — run stage 05 first.")
         return 1
