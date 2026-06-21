@@ -85,6 +85,11 @@ dataset:
   label_target: 300          # how many hand-labeled pairs you're aiming for (display only)
   # System persona prepended to instruction pairs. Describe yourself briefly.
   persona: "You are {handle}, replying on X. Be concise, opinionated, and in your own voice."
+  # Up-to-date facts appended to the system prompt (training + inference), so the model
+  # knows current details the tweets can't tell it. A literal block — write it however you
+  # like, e.g. "As of 2026: based in <city>; work at <org> as <role>; building <project>."
+  # Edit and re-run `just export` to refresh facts without retraining.
+  facts: ""
   voice_layer: true          # include raw tweets (no prompt) to reinforce style
   voice_pool_size: 3000      # max raw tweets in the voice layer
   voice_min_score: 0         # min heuristic score for a tweet to enter the voice layer

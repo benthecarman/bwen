@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from common import (REPO_ROOT, base_argparser, data_dir, load_config, ollama_generate,
-                    ollama_preflight, read_jsonl, think_off)
+                    ollama_preflight, read_jsonl, system_prompt, think_off)
 
 
 def gen(model: str, prompt: str, system: str) -> str:
@@ -33,7 +33,7 @@ def main() -> int:
     cfg = load_config(args.config)
     ollama_preflight()
     ddir = data_dir(cfg)
-    persona = cfg["dataset"]["persona"].format(handle=cfg["handle"])
+    persona = system_prompt(cfg)
     base = cfg["eval"]["base_model_tag"]
     tuned = cfg["export"]["ollama_model_name"]
 

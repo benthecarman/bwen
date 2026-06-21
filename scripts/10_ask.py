@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 
 from common import (base_argparser, data_dir, load_config, ollama_embed, ollama_generate,
-                    ollama_preflight, read_jsonl, require_file, think_off)
+                    ollama_preflight, read_jsonl, require_file, system_prompt, think_off)
 
 
 def normalize(x: np.ndarray) -> np.ndarray:
@@ -36,7 +36,7 @@ def answer(query: str, emb: np.ndarray, texts: list[str], cfg: dict) -> tuple[st
         f"{context}\n\n"
         f"Grounded in what you actually tweeted above, answer this in your own voice: {query}"
     )
-    persona = cfg["dataset"]["persona"].format(handle=cfg["handle"])
+    persona = system_prompt(cfg)
     out = ollama_generate(cfg["export"]["ollama_model_name"], prompt,
                           system=think_off(persona), options={"temperature": 0.7})
     return out.strip(), hits

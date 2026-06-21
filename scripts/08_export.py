@@ -13,7 +13,7 @@ import subprocess
 
 from pathlib import Path
 
-from common import REPO_ROOT, base_argparser, load_config, think_off
+from common import REPO_ROOT, base_argparser, load_config, system_prompt, think_off
 
 
 def find_gguf(out_dir: Path, quant: str) -> Path | None:
@@ -53,7 +53,7 @@ def main() -> int:
             print("[export] ERROR: no .gguf produced")
             return 1
 
-    persona = cfg["dataset"]["persona"].format(handle=cfg["handle"])
+    persona = system_prompt(cfg)
     modelfile = out_dir / "Modelfile"
     # Build on Unsloth's generated Modelfile (next to the gguf): it carries the correct
     # Qwen3 chat TEMPLATE and stop tokens. Without TEMPLATE, Ollama feeds the raw prompt

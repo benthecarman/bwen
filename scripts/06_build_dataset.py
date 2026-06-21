@@ -16,7 +16,7 @@ from __future__ import annotations
 import random
 import re
 
-from common import base_argparser, data_dir, load_config, read_jsonl, state_dir, write_jsonl
+from common import base_argparser, data_dir, load_config, read_jsonl, state_dir, system_prompt, write_jsonl
 
 _WORD_RE = re.compile(r"\w+")
 
@@ -46,7 +46,7 @@ def main() -> int:
     ddir = data_dir(cfg)
     dcfg = cfg["dataset"]
     seed = cfg["train"]["seed"]
-    persona = dcfg["persona"].format(handle=cfg["handle"])
+    persona = system_prompt(cfg)
 
     labeled_path = state_dir(cfg) / "labeled.jsonl"
     labeled = read_jsonl(labeled_path) if labeled_path.exists() else []

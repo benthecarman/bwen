@@ -156,6 +156,20 @@ def balanced_order(rows: list[dict], target: int | None = None) -> list[dict]:
 NO_THINK = "/no_think"  # Qwen3 directive: answer directly instead of emitting <think> blocks
 
 
+def system_prompt(cfg: dict) -> str:
+    """Full system message: the voice persona plus optional up-to-date facts.
+
+    Built in one place so training (06) and the export Modelfile (08) inject the
+    same grounding. Facts are a literal block (no .format, so stray braces are
+    safe) and live in the SYSTEM block — update them in config and re-run
+    `just export` to refresh, no retrain needed.
+    """
+    dcfg = cfg["dataset"]
+    persona = dcfg["persona"].format(handle=cfg["handle"])
+    facts = dcfg["facts"].strip()
+    return f"{persona}\n\n{facts}" if facts else persona
+
+
 def think_off(persona: str) -> str:
     """Persona system string with Qwen3 thinking disabled.
 
