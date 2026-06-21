@@ -126,3 +126,10 @@ eval:
 rag:
   top_k: 8              # how many of your own tweets to retrieve as grounding per question
   show_sources: true    # print the retrieved tweets under each answer
+
+# --- Publish to the Hugging Face Hub (step 11) ---
+# Leave blank to skip that side. Run `hf auth login` (or set HF_TOKEN) first; the repos
+# are created on first push. The model GGUF is uploaded as "<repo name>.<QUANT>.gguf".
+publish:
+  hf_dataset_repo: ""   # e.g. youruser/yourmodel-dataset  (gets pairs/voice/eval.jsonl)
+  hf_model_repo: ""     # e.g. youruser/yourmodel-14b      (gets the GGUF, Modelfile, lora/)

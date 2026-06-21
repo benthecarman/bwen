@@ -55,6 +55,12 @@ eval *args:
 ask *args:
     {{py}} {{s}}/10_ask.py {{args}}
 
+# 11 — publish dataset + model to the Hugging Face Hub (repos from config.publish).
+# `just publish --dry-run` builds the upload files without pushing; --dataset-only /
+# --model-only push just one side. Needs `hf auth login` (or HF_TOKEN) first.
+publish *args:
+    {{py}} {{s}}/11_publish.py {{args}}
+
 # Theme discovery only (parse -> filter -> themes -> merge). Stop here to review/edit
 # data/themes.yaml before scoring, since stage 04 balances across the merged themes.
 discover: parse filter themes merge

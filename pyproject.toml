@@ -15,6 +15,7 @@ dependencies = [
                             # kmeans in config.yaml to avoid it if the wheel won't build)
     "umap-learn>=0.5",      # nonlinear dim reduction for theme discovery (themes.reduce: umap)
     "tqdm>=4.66",
+    "huggingface_hub>=0.23",  # publish the dataset + model to the Hub (step 11)
     # Training stack (steps 07-08). On the RTX 5060 Ti (Blackwell / sm_120)
     # torch must be a cu128 build — see README.
     "torch",

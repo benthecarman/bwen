@@ -87,6 +87,21 @@ just ask                                        # interactive
 
 Reuses `data/embeddings.npy` from stage 03 (no extra setup). Tune `rag.top_k` / `rag.show_sources`.
 
+## Publish to Hugging Face
+
+Push the dataset and model to the Hub, built straight from the pipeline outputs (re-run after
+any retrain to keep the Hub in sync). Set `publish.hf_dataset_repo` / `publish.hf_model_repo` in
+`config.yaml`, then `hf auth login` (or export `HF_TOKEN`):
+
+```bash
+just publish --dry-run     # build pairs/voice/eval.jsonl + the GGUF Modelfile, push nothing
+just publish               # dataset repo (pairs/voice/eval.jsonl) + model repo (GGUF, Modelfile, lora/)
+just publish --dataset-only   # or --model-only to push just one side
+```
+
+The model GGUF is uploaded as `<repo name>.<QUANT>.gguf` and the Modelfile's `FROM` is rewritten
+to match, so `ollama create` works against the downloaded files. A blank repo id skips that side.
+
 > **GPU notes:** `just train` prints the detected torch/CUDA/GPU at startup. If it reports
 > `cuda avail=False` or an `sm_XXX` / unsupported-architecture error, your torch build doesn't
 > match your GPU — install the matching CUDA wheel, e.g. for a recent (Blackwell-class) GPU:
@@ -109,6 +124,7 @@ Reuses `data/embeddings.npy` from stage 03 (no extra setup). Tune `rag.top_k` / 
 | 08 export | `scripts/08_export.py` | `data/model/gguf/*.gguf` + Ollama model |
 | 09 eval | `scripts/09_eval.py` | `runs/<timestamp>.md` |
 | 10 ask | `scripts/10_ask.py` | RAG over your tweets, answered in your voice |
+| 11 publish | `scripts/11_publish.py` | dataset + model pushed to the Hugging Face Hub |
 
 Everything regenerable lives in `data/`; the things you can't (your hand-labels and skips)
 plus the expensive LLM-score cache live in `state/`. `just clean` wipes `data/` and leaves

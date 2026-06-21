@@ -20,6 +20,7 @@ just train                 # LoRA/QLoRA finetune (needs a CUDA GPU)
 just export                # merge → GGUF → `ollama create`
 just eval                  # base-vs-tuned scorecard → runs/<timestamp>.md
 just ask "..."             # stage 10: RAG over the tweets, answered in the tuned voice
+just publish               # stage 11: push dataset + model to HF (repos from config.publish)
 just clean                 # wipe data/ (regenerable); state/ is kept
 ```
 
