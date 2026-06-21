@@ -4,6 +4,10 @@ Finetune a small model to write in **your voice** and hold **your opinions**, tr
 **only your real tweets — no synthetic / AI-written training text.** Iterate fast on
 `qwen3:1.7b`, then re-run on a bigger model by changing one config value.
 
+- **How it works (full methodology):** [docs/PROCESS.md](docs/PROCESS.md)
+- **Example model:** [benthecarman/bwen-14b](https://huggingface.co/benthecarman/bwen-14b)
+- **Example dataset:** [benthecarman/bwen-dataset](https://huggingface.co/datasets/benthecarman/bwen-dataset)
+
 ## Why this works (and the prior approach didn't)
 
 - **Curate a small, high-signal subset** instead of dumping 30k+ tweets. Embeddings +
