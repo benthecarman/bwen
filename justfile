@@ -88,17 +88,14 @@ dry-run:
 clean:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ -f data/labeled.jsonl ]; then
-        tmp=$(mktemp)
-        cp data/labeled.jsonl "$tmp"
-        rm -rf data runs .dryrun {{s}}/__pycache__
-        mkdir -p data
-        mv "$tmp" data/labeled.jsonl
-        echo "[clean] removed generated artifacts; kept data/labeled.jsonl"
-    else
-        rm -rf data runs .dryrun {{s}}/__pycache__
-        echo "[clean] removed generated artifacts"
-    fi
+    keep=(data/labeled.jsonl data/label_skip.json)   # your hand-labels + skips
+    tmp=$(mktemp -d)
+    for f in "${keep[@]}"; do [ -f "$f" ] && cp "$f" "$tmp/"; done
+    rm -rf data runs .dryrun {{s}}/__pycache__
+    mkdir -p data
+    for f in "${keep[@]}"; do b=$(basename "$f"); [ -f "$tmp/$b" ] && mv "$tmp/$b" data/; done
+    rm -rf "$tmp"
+    echo "[clean] removed generated artifacts; kept your hand-labels + skips"
 
 # Like clean, but ALSO deletes hand-labeled pairs — a full reset. Use with care.
 clean-all:
