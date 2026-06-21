@@ -88,7 +88,7 @@ dry-run:
 clean:
     #!/usr/bin/env bash
     set -euo pipefail
-    keep=(data/labeled.jsonl data/label_skip.json)   # your hand-labels + skips
+    keep=(data/labeled.jsonl data/label_skip.json data/score_cache.json)   # hand-labels, skips, LLM-score cache
     tmp=$(mktemp -d)
     for f in "${keep[@]}"; do [ -f "$f" ] && cp "$f" "$tmp/"; done
     rm -rf data runs .dryrun {{s}}/__pycache__

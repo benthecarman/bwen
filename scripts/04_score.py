@@ -12,6 +12,8 @@ Output: data/candidates_scored.jsonl  (all candidates + scores)
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 
 from tqdm import tqdm
@@ -46,11 +48,26 @@ def heuristic_score(r: dict) -> float:
 
 
 def llm_score(text: str, model: str) -> tuple[int, int]:
-    import json
     resp = ollama_generate(model, SCORE_PROMPT.format(text=text), fmt=SCORE_SCHEMA,
                            options={"temperature": 0})
     d = json.loads(resp)
     return int(d["opinion_score"]), int(d["voice_score"])
+
+
+def load_score_cache(path, model: str) -> dict:
+    """Persisted LLM scores keyed by tweet id. A score is a pure function of (text, model),
+    so on a re-run we only score tweets not already cached. Reset if the scorer changes."""
+    if not path.exists():
+        return {}
+    try:
+        d = json.loads(path.read_text())
+    except Exception:  # noqa: BLE001
+        return {}
+    return d.get("scores", {}) if d.get("model") == model else {}
+
+
+def save_score_cache(path, model: str, scores: dict) -> None:
+    path.write_text(json.dumps({"model": model, "scores": scores}))
 
 
 def main() -> int:
@@ -85,16 +102,32 @@ def main() -> int:
 
     scfg = cfg["score"]
     if scfg["use_llm"]:
-        ollama_preflight()
+        model = scfg["llm_model"]
+        cache_path = ddir / "score_cache.json"
+        cache = load_score_cache(cache_path, model)
         pool_n = scfg["llm_score_pool"]
         pool = sorted(own, key=lambda r: r["heuristic"], reverse=True)[:pool_n]
-        print(f"[score] LLM-scoring top {len(pool)} by heuristic with {scfg['llm_model']}...")
+        misses = [r for r in pool
+                  if cache.get(str(r["id"]), {}).get("h") != hashlib.sha1(r["text"].encode()).hexdigest()]
+        print(f"[score] LLM scores for top {len(pool)} with {model}: "
+              f"{len(pool) - len(misses)} cached, {len(misses)} to score")
+        if misses:
+            ollama_preflight()
+        n_hit = 0
         for r in tqdm(pool, desc="llm-score"):
+            tid, h = str(r["id"]), hashlib.sha1(r["text"].encode()).hexdigest()
+            c = cache.get(tid)
+            if c and c.get("h") == h:
+                r["opinion_score"], r["voice_score"] = c["opinion"], c["voice"]
+                n_hit += 1
+                continue
             try:
-                op, vo = llm_score(r["text"], scfg["llm_model"])
+                op, vo = llm_score(r["text"], model)
                 r["opinion_score"], r["voice_score"] = op, vo
+                cache[tid] = {"opinion": op, "voice": vo, "h": h}
             except Exception as e:  # noqa: BLE001
-                print(f"[score] skip {r['id']}: {e}")
+                print(f"[score] skip {tid}: {e}")
+        save_score_cache(cache_path, model, cache)
 
     write_jsonl(scored_out, rows)
 
